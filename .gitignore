@@ -1,4 +1,5 @@
 Test*.hs
 *.hi
 *.o
+*.exe
 *~
