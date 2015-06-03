@@ -52,23 +52,14 @@ stopBefore :: (a -> Bool) -> (a -> a) -> a -> a
 stopBefore p f x = 
   if (p (f x)) then x else stopBefore p f (f x)
 
---unsafe operations
-removeJust:: Maybe a -> a
-removeJust x = case x of Just y -> y
-
-removeJustWithDefault :: Maybe a -> a-> a
-removeJustWithDefault x y = case x of
-                      Nothing -> y
-                      Just z -> z
-
 justRight :: Either a b -> b
 justRight (Right x) = x
 
 lookup2 :: (Ord a) => a -> Map.Map a b -> b
-lookup2 x h = removeJust (Map.lookup x h)
+lookup2 x h = fromJust (Map.lookup x h)
 
 lookupWithDefault:: (Ord a) => a -> Map.Map a b -> b -> b
-lookupWithDefault x h y = removeJustWithDefault (Map.lookup x h) y
+lookupWithDefault x h y = fromMaybe y (Map.lookup x h)
   
 --Maps and Lists
 
@@ -94,7 +85,7 @@ listUpdate :: Int -> a -> [a] -> [a]
 listUpdate n x li = replaceSublist n (n+1) [x] li
 
 filterJust:: [Maybe a] -> [a]
-filterJust li = map removeJust (filter isJust li)
+filterJust li = map fromJust (filter isJust li)
 
 filterZip:: (b->Bool) -> [a] -> [b] -> [(a,b)]
 filterZip p as bs = filter (\(x,y) -> p y) (zip as bs)
@@ -123,9 +114,6 @@ inj1 y x = (x,y)
 
 mlookup :: Int -> [a] -> Maybe a
 mlookup n li = if 0<=n && n<(length li) then Just (li!!n) else Nothing 
-
-(*>)::(a->b)->(b->c)->(a->c)
-f *> g = g.f
 
 tryWithDefault::(a->Maybe b) -> b-> a -> b
 tryWithDefault f def x = 
@@ -174,3 +162,6 @@ zemap f li = map f (zenumerate li)
 
 keepi :: (Int -> Bool) -> [a] -> [a]
 keepi f li = map snd (filter (f.fst) (enumerate li))
+
+appendFun :: (a -> b) -> a -> (a,b)
+appendFun f x = (x, f x)

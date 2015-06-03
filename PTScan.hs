@@ -19,11 +19,22 @@ import System.Random
 
 import Utilities
 import ParseUtilities
+import IMap
+
+-- * Codelets
 
 data Codelet' w a = Codelet' { act :: Double -> w -> a -> (Maybe (w, a), [Codelet w]),
                                _activation :: a -> World w -> Double,
                                memory :: a}
 
+--https://www.haskell.org/haddock/doc/html/ch03s08.html
+{-| 
+  A Codelet has 
+    * some internal memory (hidden, of some type a), 
+    * an activation function that depends on its memory and the outside world, 
+    * and an action. 
+  The action takes an activation value, the workspace, its memory, and returns maybe the updated workspace and memory, and a list of child codelets. If it returns Nothing, then it has self-destructed.
+-} 
 data Codelet w = forall a. (Show a) => Codelet {codelet::Codelet' w a} 
 
 activation :: World w -> Codelet w -> Double
@@ -32,39 +43,44 @@ activation wo c = case c of Codelet c' -> _activation c' (memory c') wo
 actC :: World w -> Codelet' w a -> (Maybe (w, a), [Codelet w])
 actC wo c = let m = memory c in act c (_activation c m wo) (workspace wo) m
 
-data IMap v = IMap {_map :: M.Map Int v,
-                    _curID :: Int}
-
-iEmpty :: IMap v
-iEmpty = IMap M.empty 0
-
-iInsert :: v -> IMap v -> IMap v
-iInsert val im = IMap (_map im |> M.insert (_curID im) val) (_curID im + 1)
-
-iInsertK :: Int -> v -> IMap v -> IMap v
-iInsertK k val im = im{_map = (_map im |> M.insert k val)}
-
-iInserts :: [v] -> IMap v -> IMap v
-iInserts vals im = foldIterate iInsert vals im
-
-iDelete :: Int -> IMap v -> IMap v
-iDelete k im = im {_map = _map im |> M.delete k}
+-- * Coderack
 
 type Coderack w = IMap (Codelet w)
 
 codelets :: Coderack w -> M.Map Int (Codelet w)
 codelets = _map
 
+-- * Slipnet
+
 --should a concept be able to produce codelets? Or have a codelet that monitors activation of concepts?
-data Concept = Concept { id :: Int,
+data Concept = Concept { _id :: Int,
                          name :: String,
                          c_activation :: Double,
                          depth :: Double
-                       }
+                       } deriving (Show, Eq, Ord)
 
 type Relation = Concept --no need have a different type
                          
 type Slipnet = G.Gr Concept Relation
+
+activationToFlow :: Double -> Double
+activationToFlow = id
+
+-- | 'diffuse' spreads activation by the given amount (value between 0 and 1).
+diffuse :: Double -> G.Gr Concept Relation -> G.Gr Concept Relation
+diffuse prop g =
+    let
+        --get the ID of the edge, and find the node that's labeled with that ID. (All edges are reified by nodes.)
+        getEdgeFlow::Relation -> Double
+        getEdgeFlow e = fromMaybe 0 $ fmap (activationToFlow . c_activation) $ lab g $ _id e
+        --sum flows from outgoing edges, for each node of g
+        degrees = M.fromList $ L.map (appendFun (sum . (L.map (getEdgeFlow . third)). (out g))) $ nodes g
+    in
+      --need to deal with division by 0...
+      gmap (\(ins, nd, v, outs) -> (ins, nd, v{c_activation = sum $ (L.map (\(e, _) -> prop * (getEdgeFlow e) / (lookup2 (_id v) degrees) + (1 - prop) * (c_activation v)) ins)}, outs)) g
+        
+
+-- * World
 
 data World w = forall g. RandomGen g => World { workspace :: w,
                                                 temp :: Double,
@@ -102,13 +118,6 @@ pickCodelet gen wo crack =
     in
       (newGen, getCodeletFromRandom wo r crack)
 
-{-
-World { workspace :: w,
-                           temp :: Double,
-                           coderack :: Coderack w a,
-                           slipnet :: Slipnet,
-                           rng :: g}
--}
 execCodelet :: Int -> World w -> Coderack w -> World w
 execCodelet i world crack =
     case lookup2 i $ codelets crack of
