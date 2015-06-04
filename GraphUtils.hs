@@ -15,7 +15,6 @@ import Search
 import Utilities
 import ParseUtilities
 
-
 getEdges:: G.Gr a b -> Node -> Node -> [b]
 getEdges g s t = map snd $ filter (\(v,l) -> v==t) $ lsuc g s
 

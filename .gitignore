@@ -3,3 +3,4 @@ Test*.hs
 *.o
 *.exe
 *~
+SeekWhence/tp-tools

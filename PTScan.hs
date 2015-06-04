@@ -3,7 +3,7 @@
   -XExistentialQuantification
 #-}
 
-module GraphUtils where
+module PTScan where
 import System.Environment
 import Control.Monad
 import qualified Data.List as L
@@ -26,6 +26,8 @@ import IMap
 data Codelet' w a = Codelet' { act :: Double -> w -> a -> (Maybe (w, a), [Codelet w]),
                                _activation :: a -> World w -> Double,
                                memory :: a}
+-- _activation should be salience and depend on importance and unhappiness
+-- should have a salience that's accessible by an outside party...
 
 --https://www.haskell.org/haddock/doc/html/ch03s08.html
 {-| 
@@ -110,16 +112,20 @@ gcfr wo rand pairs =
 getCodeletFromRandom :: World w -> Double -> Coderack w -> Int
 getCodeletFromRandom wo rand crack = gcfr wo rand $ M.assocs $ codelets crack
 
-pickCodelet :: (RandomGen g) => g -> World w -> Coderack w -> (g, Int)
-pickCodelet gen wo crack =
+pickCodelet :: (RandomGen g) => g -> World w -> (g, Int)
+pickCodelet gen wo =
     let
+        crack = coderack wo
         zTotal = z wo crack
-        (r, newGen) = randomR (0, zTotal) gen 
+        (r, newGen) = randomR (0, zTotal) gen
     in
       (newGen, getCodeletFromRandom wo r crack)
 
-execCodelet :: Int -> World w -> Coderack w -> World w
-execCodelet i world crack =
+execCodelet :: Int -> World w -> World w
+execCodelet i world =
+  let 
+     crack = coderack world
+  in
     case lookup2 i $ codelets crack of
       Codelet c' ->
           let
@@ -133,3 +139,17 @@ execCodelet i world crack =
                   world {workspace = newWorkspace,
                          coderack = crack |> iInsertK i (Codelet (c'{memory = newMem}))
                                           |> iInserts children}
+
+pickAndRun :: World w -> World w
+pickAndRun wo = 
+  case wo of 
+   World w1 w2 w3 w4 gen -> 
+    let
+        (newGen, n) = pickCodelet gen wo
+    in
+      --execCodelet n wo{rng = gen}
+      World w1 w2 w3 w4 gen
+
+{- workspace: (don't quite get this)
+Neighboring objects are probabilistically selected (biased towards salient objects) and scanned for similarities or relationships. Promising ones are reified as inter-object bonds. It is speed-biased towards sameness bonds.
+-}
