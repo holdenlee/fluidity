@@ -23,7 +23,7 @@ import IMap
 
 -- * Codelets
 
-data Codelet' w a = Codelet' { act :: Double -> w -> a -> (Maybe (w, a), [Codelet w]),
+data Codelet' w a = Codelet' { act :: Double -> World w -> a -> (Maybe (World w, a), [Codelet w]),
                                _activation :: a -> World w -> Double,
                                memory :: a}
 -- _activation should be salience and depend on importance and unhappiness
@@ -42,8 +42,8 @@ data Codelet w = forall a. (Show a) => Codelet {codelet::Codelet' w a}
 activation :: World w -> Codelet w -> Double
 activation wo c = case c of Codelet c' -> _activation c' (memory c') wo
 
-actC :: World w -> Codelet' w a -> (Maybe (w, a), [Codelet w])
-actC wo c = let m = memory c in act c (_activation c m wo) (workspace wo) m
+actC :: World w -> Codelet' w a -> (Maybe (World w, a), [Codelet w])
+actC wo c = let m = memory c in act c (_activation c m wo) wo m
 
 -- * Coderack
 
@@ -135,10 +135,9 @@ execCodelet i world =
             --  Nothing -> (world, crack) --shouldn't happen
             case updated of
               Nothing -> world {coderack = crack |> iDelete i |> iInserts children}
-              Just (newWorkspace, newMem) -> 
-                  world {workspace = newWorkspace,
-                         coderack = crack |> iInsertK i (Codelet (c'{memory = newMem}))
-                                          |> iInserts children}
+              Just (newWorld, newMem) -> 
+                  newWorld {coderack = crack |> iInsertK i (Codelet (c'{memory = newMem}))
+                                             |> iInserts children}
 
 pickAndRun :: World w -> World w
 pickAndRun wo = 
@@ -146,9 +145,9 @@ pickAndRun wo =
    World w1 w2 w3 w4 gen -> 
     let
         (newGen, n) = pickCodelet gen wo
+        newW = World w1 w2 w3 w4 gen
     in
-      --execCodelet n wo{rng = gen}
-      World w1 w2 w3 w4 gen
+      execCodelet n newW      
 
 {- workspace: (don't quite get this)
 Neighboring objects are probabilistically selected (biased towards salient objects) and scanned for similarities or relationships. Promising ones are reified as inter-object bonds. It is speed-biased towards sameness bonds.

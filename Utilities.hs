@@ -40,6 +40,10 @@ loopUntilFail f x =
     Just y -> loopUntilFail f y
     Nothing -> x
 
+repeatTimes :: Int -> (a-> a) -> a -> a
+repeatTimes n f x = 
+    if n <=0 then x else repeatTimes (n-1) f (f x)
+
 while :: (a -> Bool) -> (a -> a) -> a -> a
 while p f x = 
   if (p x) then while p f (f x) else x
@@ -165,3 +169,7 @@ keepi f li = map snd (filter (f.fst) (enumerate li))
 
 appendFun :: (a -> b) -> a -> (a,b)
 appendFun f x = (x, f x)
+
+mindex:: [a] -> Int -> Maybe a
+mindex li i = 
+    if i>=0 && i<length li then Just (li!!i) else Nothing
