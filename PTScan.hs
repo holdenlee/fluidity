@@ -26,6 +26,9 @@ import IMap
 data Codelet' w a = Codelet' { act :: Double -> World w -> a -> (Maybe (World w, a), [Codelet w]),
                                _activation :: a -> World w -> Double,
                                memory :: a}
+
+instance (Show a) => Show (Codelet' w a) where
+    show = show . memory
 -- _activation should be salience and depend on importance and unhappiness
 -- should have a salience that's accessible by an outside party...
 
@@ -37,7 +40,10 @@ data Codelet' w a = Codelet' { act :: Double -> World w -> a -> (Maybe (World w,
     * and an action. 
   The action takes an activation value, the workspace, its memory, and returns maybe the updated workspace and memory, and a list of child codelets. If it returns Nothing, then it has self-destructed.
 -} 
-data Codelet w = forall a. (Show a) => Codelet {codelet::Codelet' w a} 
+data Codelet w = forall a. (Show a) => Codelet {codelet::Codelet' w a}
+
+instance Show (Codelet w) where
+    show c = case c of Codelet c' -> show c'
 
 activation :: World w -> Codelet w -> Double
 activation wo c = case c of Codelet c' -> _activation c' (memory c') wo
@@ -119,7 +125,7 @@ pickCodelet gen wo =
         zTotal = z wo crack
         (r, newGen) = randomR (0, zTotal) gen
     in
-      (newGen, getCodeletFromRandom wo r crack)
+      (newGen, getCodeletFromRandom wo r crack) `debug` (show (r, getCodeletFromRandom wo r crack))
 
 execCodelet :: Int -> World w -> World w
 execCodelet i world =
@@ -137,7 +143,7 @@ execCodelet i world =
               Nothing -> world {coderack = crack |> iDelete i |> iInserts children}
               Just (newWorld, newMem) -> 
                   newWorld {coderack = crack |> iInsertK i (Codelet (c'{memory = newMem}))
-                                             |> iInserts children}
+                                             |> iInserts children} `debug` (show newMem)
 
 pickAndRun :: World w -> World w
 pickAndRun wo = 
@@ -145,7 +151,7 @@ pickAndRun wo =
    World w1 w2 w3 w4 gen -> 
     let
         (newGen, n) = pickCodelet gen wo
-        newW = World w1 w2 w3 w4 gen
+        newW = World w1 w2 w3 w4 newGen
     in
       execCodelet n newW      
 

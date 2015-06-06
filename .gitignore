@@ -3,4 +3,5 @@ Test*.hs
 *.o
 *.exe
 *~
-SeekWhence/tp-tools
+*#
+SeekWhence/tp-tools-old

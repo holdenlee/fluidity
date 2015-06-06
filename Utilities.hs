@@ -152,6 +152,10 @@ x |> f = f x
 --debug x y = x
 debug = flip trace
 
+debugShow x = trace (show x) x
+
+debugSummary x f = trace (show (f x)) x
+
 enumerate :: [a] -> [(Int, a)]
 enumerate li = zip [1..] li
 

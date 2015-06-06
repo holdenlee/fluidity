@@ -22,14 +22,14 @@ import Data.Tree as T
 import Utilities
 import ParseUtilities
 import IMap
-
-data Atom = AStr String | AInt Int | AVar Int deriving (Show)
-
-type Formula = T.Tree Atom
+import Formulas
 
 data Structure = Structure {_formula :: T.Tree Atom, 
                             _start :: Int,
-                            _end :: Int} deriving (Show)
+                            _end :: Int}
+
+instance Show Structure where
+    show str = showFormula symLib $ _formula str
 
 _length :: Structure -> Int
 _length str = _end str - _start str + 1
@@ -43,7 +43,7 @@ data Workspace = Workspace {_list :: [Int],
                            }
 
 instance Show Workspace where
-    show = show . board
+    show = prettify . board
 
 --get id of top structure at index
 getTopStructureAt :: Int -> Workspace -> Int
@@ -52,7 +52,7 @@ getTopStructureAt i wk =
 --this is not good - let's assume only 1 atTop structure for each.
 
 --add a structure on top of structures
-addFormulaOn :: [Int] -> Formula -> Workspace -> Workspace
+addFormulaOn :: [Int] -> Formula -> Workspace -> (Workspace, Int)
 addFormulaOn li f wk = 
     let
         b = board wk
@@ -68,7 +68,7 @@ addFormulaOn li f wk =
                           |> (G.insEdges $ L.map (\x -> (newN, x, Group)) li),
          tops = tops wk |> foldIterate S.delete li,
          atTop = atTop wk |> foldIterate (MM.delete) (L.map fst nowHiddens)
-                          |> foldIterate (uncurry MM.insert) (L.map (,newN) [newStart..newEnd])}
+                          |> foldIterate (uncurry MM.insert) (L.map (,newN) [newStart..newEnd])} |> (,newN)
 
 
 singletonList :: Int -> Formula
@@ -111,6 +111,10 @@ rangerf f g =
                             T.Node _range' [T.Node (AInt c) [], T.Node (AInt d) []] ->
                                 if c == b+1 then Just (_range [a,d]) else Nothing
                             _ -> Nothing
+              T.Node _mlist' [T.Node (AInt a) []] -> 
+                  case g of T.Node _mlist' [T.Node (AInt c) []] ->
+                                if c == a+1 then Just (_range [a,c]) else Nothing
+                            _ -> Nothing 
               _ -> Nothing
 
 replicatorf :: Formula -> Formula -> Maybe Formula
@@ -119,7 +123,11 @@ replicatorf f g =
                   case g of T.Node _mlist' [T.Node (AInt n') []] ->
                                 if n' == n then Just (_replicate [t+1,n]) else Nothing
                             T.Node _replicate' [T.Node (AInt t') [], T.Node (AInt n') []] ->
-                                if n' == n then Just (_range [t+t',n]) else Nothing
+                                if n' == n then Just (_replicate [t+t',n]) else Nothing
+                            _ -> Nothing
+              T.Node _mlist' [T.Node (AInt a) []] -> 
+                  case g of T.Node _mlist' [T.Node (AInt c) []] ->
+                                if c == a then Just (_replicate [2,a]) else Nothing
                             _ -> Nothing
               _ -> Nothing
 
@@ -134,7 +142,7 @@ getNextStructure i wk =
     in
       (MM.lookup (_end (fromJust $ G.lab b i) + 1) (atTop wk)) `mindex` 0
 
-combineRuleToAction :: (Formula -> Formula -> Maybe Formula) -> Int -> Workspace -> Maybe Workspace
+combineRuleToAction :: (Formula -> Formula -> Maybe Formula) -> Int -> Workspace -> Maybe (Workspace, Int)
 combineRuleToAction f i wk = 
     do
       let b = board wk
@@ -153,6 +161,9 @@ f .| g = \x ->
                case g x of
                  Just z -> Just z
                  Nothing -> Nothing
+
+(.&) :: (a -> Maybe a) -> (a -> Maybe a) -> a -> Maybe a
+(.&) = (>=>)
 
 tryDo :: (a -> Maybe a) -> a -> Maybe a
 tryDo f x = case f x of

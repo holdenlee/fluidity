@@ -24,12 +24,13 @@ import ParseUtilities
 import IMap
 import PTScan
 import Workspace
+import Formulas
 
-wkFToWoF :: (Workspace -> Maybe Workspace) -> World Workspace -> Maybe (World Workspace)
+wkFToWoF :: (Workspace -> Maybe (Workspace, Int)) -> World Workspace -> Maybe (World Workspace, Int)
 wkFToWoF f world = 
     do
-      newWk <- f (workspace world)
-      return world{workspace= newWk}
+      (newWk, i) <- f (workspace world)
+      return (world{workspace= newWk},i)
 
 mPair :: (a -> Maybe a) -> (b -> Maybe b) -> ((a,b) -> Maybe (a,b))
 mPair f g (x,y) = 
@@ -40,13 +41,27 @@ mPair f g (x,y) =
             Nothing -> Nothing
             Just y' -> Just (x',y')
 
-ranger' = Codelet' {act = \ac wo i ->
+combineRuleToLRCodelet :: (Formula -> Formula -> Maybe Formula) -> Codelet Workspace
+combineRuleToLRCodelet f = Codelet (Codelet' {act = \ac wo i ->
                           let 
-                              f1 = (wkFToWoF (combineRuleToAction rangerf i)) `mPair` return
+                              f1 = (wkFToWoF (combineRuleToAction f i)) . fst --`mPair` return
+                              f2 = return `mPair` (moveRight (workspace wo))
+                          in
+                            (tryDo (f1 .| f2) (wo,i), []),
+                    _activation = \i wo -> 1,
+--(fromIntegral i) / (fromIntegral $ length $ _list (workspace wo)),
+                    memory = 1})
+
+ranger = combineRuleToLRCodelet rangerf
+replicator = combineRuleToLRCodelet replicatorf
+
+{-ranger' = Codelet' {act = \ac wo i ->
+                          let 
+                              f1 = (wkFToWoF (combineRuleToAction rangerf i)) . fst --`mPair` return
                               f2 = return `mPair` (moveRight (workspace wo))
                           in
                             (tryDo (f1 .| f2) (wo,i), []),
                     _activation = \i wo -> (fromIntegral i) / (fromIntegral $ length $ _list (workspace wo)),
                     memory = 1}
 
-ranger = Codelet ranger'
+ranger = Codelet ranger'-}

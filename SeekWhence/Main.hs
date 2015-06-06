@@ -25,6 +25,7 @@ import IMap
 import PTScan
 import Workspace
 import SeekWhence
+--import Formulas
 
 logg :: (a -> a) -> (a -> IO b) -> (IO a -> IO a)
 logg f disp ia = 
@@ -40,7 +41,7 @@ main = do
   g <- getStdGen
   let world = World { workspace =wk,
                       temp =50,
-                      coderack = iEmpty |> iInsert ranger,
+                      coderack = iEmpty |> iInsert replicator |> iInsert ranger,
                       slipnet = G.empty,
                       rng = g}
-  repeatTimes 10 (logg pickAndRun (\wo -> putStrLn $ show $ workspace wo)) (return world)
+  repeatTimes 20 (logg pickAndRun (\wo -> putStrLn $ show $ workspace wo)) (return world)
