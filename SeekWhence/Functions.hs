@@ -41,6 +41,8 @@ _range' = AStr "range"
 _range ::  Formula -> Formula -> Formula
 _range = makeF2 _range'
 
+_range2 x y = _range (_num x) (_num y)
+
 _drange' = AStr "drange"
 
 _drange ::  Formula -> Formula -> Formula
@@ -54,6 +56,8 @@ _singleton n = _mlist [_num n]
 
 _replicate' = AStr "replicate"
 _replicate = makeF2 _replicate'
+
+_replicate2 x y = _replicate  (_num x) (_num y)
 
 _fun' = AStr "fun"
 _fun = makeF2 _fun'

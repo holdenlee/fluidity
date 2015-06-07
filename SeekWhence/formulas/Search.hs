@@ -7,11 +7,11 @@
  -XFlexibleContexts
 #-}
 
-module Search (Searchable, children, root, graft, SearchPath, TPath, path, meTree, cur, curTree, up, down, prev, next, start, changeMe, emptyPath, node, dFSStep) where
+module Search (Searchable, children, root, graft, SearchPath, TPath, path, meTree, cur, curTree, up, down, prev, next, start, changeMe, emptyPath, node, dFSStep, dFSStep2) where
 import System.Environment
 import Control.Monad
 import Data.Tree
-import Control.Monad.State
+import Control.Monad.Trans.State
 
 import Utilities
 
@@ -21,9 +21,6 @@ class Searchable a b | a -> b where
       graft :: b -> [a] -> a
 node :: (Searchable a b) => b -> a
 node x = graft x []
-
-(-:):: a -> (a -> b) -> b
-x -: f = f x
 
 instance Searchable (Tree a) a where 
          children ta = (case ta of Node _ c -> c)
@@ -51,6 +48,10 @@ class (Searchable a b) => SearchPath a b c | c -> a b  where
       changeMe :: a -> c -> c
       atTop :: c -> Bool
       emptyPath :: c
+
+cur2 :: (Searchable a b) => b -> TPath a b -> b
+cur2 y t = case (meTree t) of (Just a) -> cur t
+                              Nothing -> y
 
 --basically a list zipper inside. probably a little overkill.
 data TNode a b = TNode {meN :: b
@@ -98,6 +99,7 @@ instance (Searchable a b) => SearchPath a b (TPath a b) where
          --have to join up! Note this can be made more efficient
          curTree t = 
            case (meTree t) of (Just a) -> a
+                              Nothing -> curTree (up t)
          cur t = root (curTree t)
          down t = 
            case (meTree t) of 
@@ -153,7 +155,7 @@ instance (Searchable a b) => SearchPath a b (TPath a b) where
          emptyPath = TPath [] Nothing
 
 
-
+--change this to tell us where it went
 dFSStep:: (SearchPath a b c) => (c, Bool) -> (c,Bool) 
 dFSStep (tpath, done) =
     if done 
@@ -169,6 +171,28 @@ dFSStep (tpath, done) =
                   then (tpath2, True)
                   else (tpath2 |> next, False)
                    )
+
+dFSStep2:: (SearchPath a b c) => State c (b,String)
+--(Searchable a b) => b -> State (TPath a b) (b,String)
+dFSStep2 = state $ (\tpath ->
+          if (hasChild tpath)
+          then 
+              let tpath2 = tpath |> down |> next in
+              ((cur tpath2, "down"), tpath2) 
+          else (
+                if hasNext tpath
+                then 
+                    let tpath2 = tpath |> next in
+                    ((cur tpath2, "down"), tpath2)
+                else
+                    let 
+                        tpath2 = tpath |> up
+                    in
+                      if (atTop tpath2)
+                      then ((cur tpath, "done"), tpath2)
+                      else ((cur (tpath2 |> next), "up"), tpath2 |> next)
+                   ))
+
 
 {-
 dFSStep:: (SearchPath a b c) => c -> State c Bool

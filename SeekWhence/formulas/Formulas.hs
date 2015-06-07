@@ -15,10 +15,9 @@ import qualified Data.Map.Strict as M
 import qualified Data.Tree as T
 
 import Utilities
-import MathParser
 import Search
 
-data Atom = AStr String | AInt Int | AVar Int deriving (Show, Eq)
+data Atom = AStr String | AInt Int | AVar Int deriving (Show, Eq, Ord)
 
 type Formula = T.Tree Atom
 
@@ -32,20 +31,3 @@ symLib = M.fromList [("range", "[?1..?2]"),
                      ("List", "[?args]")
                     ]
 
-showFormula :: SymbolLib -> Formula -> String
-showFormula slib f = 
-  let 
-  --get the symbol at the root 
-    rt = 
-        case root f of
-          AStr str -> str
-          AInt n -> (show n)
-          AVar i -> "n_" ++ (show i)
-  --look up the displayrule,
-  --if you can't find it, use the default provided
-    def = 
-      if (null (children f)) then rt else (rt ++ "(" ++ "?args" ++ ")")
-    drule = tryWithDefault (\sym -> M.lookup sym slib) def rt
-  in (case (parseDispExpr drule (fmap (showFormula slib) (children f))) of
-    Right s -> s
-    Left _ -> "error")

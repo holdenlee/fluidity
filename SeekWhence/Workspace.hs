@@ -23,6 +23,9 @@ import Utilities
 import ParseUtilities
 import IMap
 import Formulas
+import Functions
+import TreeState
+import MathParser
 
 data Structure = Structure {_formula :: T.Tree Atom, 
                             _start :: Int,
@@ -70,12 +73,8 @@ addFormulaOn li f wk =
          atTop = atTop wk |> foldIterate (MM.delete) (L.map fst nowHiddens)
                           |> foldIterate (uncurry MM.insert) (L.map (,newN) [newStart..newEnd])} |> (,newN)
 
-
-singletonList :: Int -> Formula
-singletonList n = T.Node (AStr "List") [T.Node (AInt n) []]
-
 singletonStr :: (Int, Int) -> Structure
-singletonStr (i, n) = Structure{_formula = singletonList n,
+singletonStr (i, n) = Structure{_formula = _singleton n,
                              _start = i,
                              _end = i}
 
@@ -86,60 +85,38 @@ listToWorkspace li = Workspace{_list = li,
                                atTop = MM.fromList $ zip [1..length li] [1..length li]}
 --each is represented by a singleton list
 
-makeFormulaFunc :: Atom -> ([Int] -> Formula)
-makeFormulaFunc f = (T.Node f) . (map (\x -> T.Node (AInt x) []))
-
---makeFormulaFunc2 :: Atom -> ([Atom] -> Formula)
---makeFormulaFunc2 f = (T.Node f) . (map (\x -> T.Node x []))
-
---figure out how to do this with template haskell :P
-_range' = AStr "range"
-_range = makeFormulaFunc _range'
-
-_drange' = AStr "drange"
-_drange = makeFormulaFunc _drange'
-
-_mlist' = AStr "List"
-_mlist = makeFormulaFunc _mlist'
-
-_replicate' = AStr "replicate"
-_replicate = makeFormulaFunc _replicate'
-
-_concatMap' = AStr "concatMap"
---_concatMap = makeFormulaFunc2 _concatMap'
-
-_apply' = AStr "->"
---_apply = makeFormulaFunc2 _apply' 
---need to do reflection!
+rangerPattern = parsePattern "range(?1,?2)"
+singlePattern = parsePattern "List(?1)"
+replPattern = parsePattern "replicate(?1,?2)"
 
 --this is annoying to write out. Find nicer way?
 rangerf :: Formula -> Formula -> Maybe Formula
 rangerf f g = 
-    case f of T.Node _range' [T.Node (AInt a) [], T.Node (AInt b) []] -> 
-                  case g of T.Node _mlist' [T.Node (AInt c) []] ->
-                                if c == b+1 then Just (_range [a,c]) else Nothing
-                            T.Node _range' [T.Node (AInt c) [], T.Node (AInt d) []] ->
-                                if c == b+1 then Just (_range [a,d]) else Nothing
-                            _ -> Nothing
-              T.Node _mlist' [T.Node (AInt a) []] -> 
-                  case g of T.Node _mlist' [T.Node (AInt c) []] ->
-                                if c == a+1 then Just (_range [a,c]) else Nothing
-                            _ -> Nothing 
-              _ -> Nothing
+    let
+        singlef = patternMatch' singlePattern f
+        rangef = patternMatch' rangerPattern f
+        singleg = patternMatch' singlePattern g
+        rangeg = patternMatch' rangerPattern g
+    in
+      case (singlef, rangef, singleg, rangeg) of
+        (_, Just [a,b], Just [c], _) -> if c == b+1 then Just (_range2 a c) else Nothing
+        (_, Just [a,b], _ , Just [c,d]) -> if c == b+1 then Just (_range2 a d) else Nothing
+        (Just [a], _, Just [b], _) -> if b== a + 1 then Just (_range2 a b) else Nothing
+        _ -> Nothing
 
 replicatorf :: Formula -> Formula -> Maybe Formula
 replicatorf f g = 
-    case f of T.Node _replicate' [T.Node (AInt t) [], T.Node (AInt n) []] -> 
-                  case g of T.Node _mlist' [T.Node (AInt n') []] ->
-                                if n' == n then Just (_replicate [t+1,n]) else Nothing
-                            T.Node _replicate' [T.Node (AInt t') [], T.Node (AInt n') []] ->
-                                if n' == n then Just (_replicate [t+t',n]) else Nothing
-                            _ -> Nothing
-              T.Node _mlist' [T.Node (AInt a) []] -> 
-                  case g of T.Node _mlist' [T.Node (AInt c) []] ->
-                                if c == a then Just (_replicate [2,a]) else Nothing
-                            _ -> Nothing
-              _ -> Nothing
+    let
+        singlef = patternMatch' singlePattern f
+        replf = patternMatch' replPattern f
+        singleg = patternMatch' singlePattern g
+        replg = patternMatch' replPattern g
+    in
+      case (singlef, replf, singleg, replg) of
+        (_, Just [t,n], Just [n'], _) -> if n == n' then Just (_replicate2 (t+1) n) else Nothing
+        (_, Just [t,n], _ , Just [t',n']) -> if n == n' then Just (_replicate2 (t+t') n) else Nothing
+        (Just [n], _, Just [n'], _) -> if n==n' then Just (_replicate2  2 n) else Nothing
+        _ -> Nothing
 
 --Should each structure have a strength? Relative importance? Happiness? Salience? (weighted average of importance and unhappiness)
 --Formula -> Formula -> Maybe Formula
