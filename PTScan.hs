@@ -1,6 +1,7 @@
 {-# OPTIONS
 
   -XExistentialQuantification
+  -XRank2Types
 #-}
 
 module PTScan where
@@ -154,6 +155,9 @@ pickAndRun wo =
         newW = World w1 w2 w3 w4 newGen
     in
       execCodelet n newW      
+
+borrowGen :: World w -> (forall g. (RandomGen g) => g -> (g, a)) -> World w
+borrowGen wo _ = wo 
 
 {- workspace: (don't quite get this)
 Neighboring objects are probabilistically selected (biased towards salient objects) and scanned for similarities or relationships. Promising ones are reified as inter-object bonds. It is speed-biased towards sameness bonds.

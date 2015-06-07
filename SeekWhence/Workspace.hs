@@ -89,6 +89,9 @@ listToWorkspace li = Workspace{_list = li,
 makeFormulaFunc :: Atom -> ([Int] -> Formula)
 makeFormulaFunc f = (T.Node f) . (map (\x -> T.Node (AInt x) []))
 
+--makeFormulaFunc2 :: Atom -> ([Atom] -> Formula)
+--makeFormulaFunc2 f = (T.Node f) . (map (\x -> T.Node x []))
+
 --figure out how to do this with template haskell :P
 _range' = AStr "range"
 _range = makeFormulaFunc _range'
@@ -101,6 +104,13 @@ _mlist = makeFormulaFunc _mlist'
 
 _replicate' = AStr "replicate"
 _replicate = makeFormulaFunc _replicate'
+
+_concatMap' = AStr "concatMap"
+--_concatMap = makeFormulaFunc2 _concatMap'
+
+_apply' = AStr "->"
+--_apply = makeFormulaFunc2 _apply' 
+--need to do reflection!
 
 --this is annoying to write out. Find nicer way?
 rangerf :: Formula -> Formula -> Maybe Formula

@@ -18,7 +18,7 @@ import Utilities
 import MathParser
 import Search
 
-data Atom = AStr String | AInt Int | AVar Int deriving (Show)
+data Atom = AStr String | AInt Int | AVar Int deriving (Show, Eq)
 
 type Formula = T.Tree Atom
 

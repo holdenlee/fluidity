@@ -7,10 +7,13 @@
  -XFlexibleContexts
 #-}
 
-module Search (Searchable, children, root, graft, SearchPath, TPath, path, meTree, cur, curTree, up, down, prev, next, start, changeMe, emptyPath, node) where
+module Search (Searchable, children, root, graft, SearchPath, TPath, path, meTree, cur, curTree, up, down, prev, next, start, changeMe, emptyPath, node, dFSStep) where
 import System.Environment
 import Control.Monad
 import Data.Tree
+import Control.Monad.State
+
+import Utilities
 
 class Searchable a b | a -> b where
       children :: a -> [a]
@@ -148,3 +151,26 @@ instance (Searchable a b) => SearchPath a b (TPath a b) where
            [] -> True
            _  -> False
          emptyPath = TPath [] Nothing
+
+
+
+dFSStep:: (SearchPath a b c) => (c, Bool) -> (c,Bool) 
+dFSStep (tpath, done) =
+    if done 
+    then (tpath,done) 
+    else
+          if (hasChild tpath)
+          then (tpath |> down |> next, False)
+          else (
+                let 
+                    tpath2 = tpath |> up
+                in
+                  if (atTop tpath2)
+                  then (tpath2, True)
+                  else (tpath2 |> next, False)
+                   )
+
+{-
+dFSStep:: (SearchPath a b c) => c -> State c Bool
+dFSStep tpath = State (dFSStep')
+-}
