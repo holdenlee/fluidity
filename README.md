@@ -1,18 +1,20 @@
 About
 =====
 
-Implements the Copycat (Parallel terraced scan) architecture in Hofstadter's Fluid Concepts and Creative Analogies.
+Implements the Copycat (Parallel terraced scan) architecture in Hofstadter's Fluid Concepts and Creative Analogies. Applies it towards the "SeekWhence" program, which finds the rule behind a integer sequence given the input.
 
 What's here
 ===========
 
-Defined the datatypes
+Defined the datatypes in PTScan
 
 * Codelets, Coderack
 * Slipnet
 * World
 
-(Workspace is just w for now.)
+I'm trying to make this as modular as possible (though the PTScan architecture doesn't lend itself to this so easily). Right now it's missing a lot of the important stuff: activations, relative strengths, etc. It can take an abitrary workspace type w.
+
+This is specialized for SeekWhence. The Workspace is defined there as a graph of subsequences the program has found explanations for.
 
 Dynamics
 
