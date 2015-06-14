@@ -21,10 +21,12 @@ import System.Random
 import Utilities
 import ParseUtilities
 import IMap
+import GraphUtils
 
 -- * Codelets
 
-data Codelet' w a = Codelet' { act :: Double -> World w -> a -> (Maybe (World w, a), [Codelet w]),
+data Codelet' w a = Codelet' { c_name :: String,
+                               act :: Double -> World w -> a -> (Maybe (World w, a), [Codelet w]),
                                _activation :: a -> World w -> Double,
                                memory :: a}
 
@@ -66,6 +68,7 @@ data Concept = Concept { _id :: Int,
                          name :: String,
                          c_activation :: Double,
                          depth :: Double
+                         --c_codelets :: 
                        } deriving (Show, Eq, Ord)
 
 type Relation = Concept --no need have a different type
@@ -162,3 +165,8 @@ borrowGen wo _ = wo
 {- workspace: (don't quite get this)
 Neighboring objects are probabilistically selected (biased towards salient objects) and scanned for similarities or relationships. Promising ones are reified as inter-object bonds. It is speed-biased towards sameness bonds.
 -}
+
+updateActivation :: Node -> (Double -> Double) -> World w -> World w
+updateActivation v f world = 
+    world{slipnet = slipnet world |> modV v (\v' -> v'{c_activation = f $ c_activation v'})}
+

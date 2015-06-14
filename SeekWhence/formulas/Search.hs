@@ -7,7 +7,7 @@
  -XFlexibleContexts
 #-}
 
-module Search (Searchable, children, root, graft, SearchPath, TPath, path, meTree, cur, curTree, up, down, prev, next, start, changeMe, emptyPath, node, dFSStep, dFSStep2) where
+module Search (Searchable, children, root, graft, SearchPath, TPath, TPath2, path, meTree, cur, curTree, up, down, prev, next, start, changeMe, emptyPath, node, dFSStep, dFSStep2) where
 import System.Environment
 import Control.Monad
 import Data.Tree
@@ -65,6 +65,8 @@ instance Show b => Show (TNode a b) where
 data TPath a b = TPath {path :: [TNode a b]
              , meTree :: Maybe a
              }
+
+type TPath2 b = TPath (Tree b) b
              
 instance (Show a , Show b) => Show (TPath a b) where
          show x = "(" ++ show (path x) ++ ", " ++ show (meTree x) ++")"
@@ -154,6 +156,8 @@ instance (Searchable a b) => SearchPath a b (TPath a b) where
            _  -> False
          emptyPath = TPath [] Nothing
 
+zipUp :: (SearchPath a b c) => c -> a
+zipUp tp = if atTop tp then curTree tp else zipUp $ up tp
 
 --change this to tell us where it went
 dFSStep:: (SearchPath a b c) => (c, Bool) -> (c,Bool) 

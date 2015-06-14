@@ -25,6 +25,7 @@ import IMap
 import PTScan
 import Workspace
 import SeekWhence
+import Codelets1
 --import Formulas
 
 logg :: (a -> a) -> (a -> IO b) -> (IO a -> IO a)

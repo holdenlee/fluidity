@@ -29,7 +29,9 @@ import MathParser
 
 data Structure = Structure {_formula :: T.Tree Atom, 
                             _start :: Int,
-                            _end :: Int}
+                            _end :: Int,
+                            _strength :: Double
+                           }
 
 instance Show Structure where
     show str = showFormula symLib $ _formula str
@@ -65,7 +67,8 @@ addFormulaOn li f wk =
         --list should be in order!
         newStart = _start $ fromJust $ G.lab b $head li
         newEnd = _end $ fromJust $ G.lab b $ last li
-        str = Structure{_formula = f, _start = newStart, _end=newEnd}
+        str = Structure{_formula = f, _start = newStart, _end=newEnd, _strength = fromIntegral $ newEnd - newStart + 1}
+        --default strength is length
     in
       wk{board = board wk |> G.insNode (newN, str)
                           |> (G.insEdges $ L.map (\x -> (newN, x, Group)) li),
@@ -76,7 +79,8 @@ addFormulaOn li f wk =
 singletonStr :: (Int, Int) -> Structure
 singletonStr (i, n) = Structure{_formula = _singleton n,
                              _start = i,
-                             _end = i}
+                             _end = i,
+                             _strength = 1}
 
 listToWorkspace :: [Int] -> Workspace
 listToWorkspace li = Workspace{_list = li,

@@ -88,10 +88,9 @@ combineRuleToLRCodelet f name = Codelet (Codelet' {act = \ac wo i ->
                             (tryDo (f1 .| f2) (wo,i), []),
                     _activation = \i wo -> 1 + (fromIntegral $ getTotalLengths name (workspace wo)),
 --(fromIntegral i) / (fromIntegral $ length $ _list (workspace wo)),
-                    memory = 1})
+                    memory = 1,
+                    c_name = name})
 
-ranger = combineRuleToLRCodelet rangerf "range"
-replicator = combineRuleToLRCodelet replicatorf "replicate"
 
 getUsedVars :: Formula -> S.Set Int
 getUsedVars (T.Node x li) = 
@@ -112,64 +111,3 @@ getUnusedVar = getMax . getUsedVars
 --justAns :: State a s -> s
 --justAns x = snd . runState x
 
---n is unused var. mp is mapping between ints
-generalize' :: Int -> (TPath Formula Atom, TPath Formula Atom, Maybe (Int,Int), Bool) -> Maybe (TPath Formula Atom, TPath Formula Atom, Maybe (Int,Int),Bool)
-generalize' i (p1,p2,mp,b) = 
-    if b --if finished
-    then Just (p1,p2,mp,b)
-    else
-        case cur p1 of
-          AInt m -> 
-              case cur p2 of
-                AInt n -> 
-                    if m==n 
-                    then 
-                        let
-                            (p1',b1) = dFSStep (p1,False)
-                            (p2',b2) = dFSStep (p2,False)
-                        in
-                          generalize' i (p1',p2',mp,b1 && b2) --what happens if out of sync?
-                    else 
-                        case mp of
-                          Just (m,n) -> 
-                            let
-                                (p1',b1) = dFSStep (p1 |> changeMe (T.Node (AVar i) []),False)
-                                (p2',b2) = dFSStep (p2 |> changeMe (T.Node (AVar i) []),False)
-                            in
-                              generalize' i (p1',p2',mp,b1 && b2) --what happens if out of sync?
-                          Nothing -> 
-                            let
-                                (p1',b1) = dFSStep (p1 |> changeMe (T.Node (AVar i) []),False)
-                                (p2',b2) = dFSStep (p2 |> changeMe (T.Node (AVar i) []),False)
-                            in
-                              generalize' i (p1',p2',Just (m,n),b1 && b2) --what happens if out of sync?
-                _ -> Nothing
-          _ -> if cur p1 == cur p2 
-               then 
-                   let
-                       (p1',b1) = dFSStep (p1,False)
-                       (p2',b2) = dFSStep (p2,False)
-                            in
-                              generalize' i (p1',p2',mp,b1 && b2) --what happens if out of sync?
-               else Nothing
-
-{-
-generalize :: Formula -> Formula -> Maybe Formula
-generalize f1 f2 = 
-    do
-      let m = max (getUnusedVar f1, getUnusedVar f2)
-      (p1,p2,mp,b) <- generalize' m (start f1, start f2, Nothing, False)
-      return $ _concatMap [_apply (AVar m) -}
-
---generalizor = combineRuleToLRCodelet generalize "range"
-
-{-ranger' = Codelet' {act = \ac wo i ->
-                          let 
-                              f1 = (wkFToWoF (combineRuleToAction rangerf i)) . fst --`mPair` return
-                              f2 = return `mPair` (moveRight (workspace wo))
-                          in
-                            (tryDo (f1 .| f2) (wo,i), []),
-                    _activation = \i wo -> (fromIntegral i) / (fromIntegral $ length $ _list (workspace wo)),
-                    memory = 1}
-
-ranger = Codelet ranger'-}
