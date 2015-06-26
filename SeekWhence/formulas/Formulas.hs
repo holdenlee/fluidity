@@ -27,7 +27,9 @@ type SymbolLib = M.Map String String
 symLib :: SymbolLib
 symLib = M.fromList [("range", "[?1..?2]"),
                      ("replicate", "(replicate ?1 ?2)"),
-                     ("->", "(\\?1 -> ?2)"),
+                     ("concatMap", "(concatMap ?1 ?2)"),
+                     ("concatReplicate", "(concat $ replicate ?1 ?2)"),
+                     ("fun", "(\\?1 -> ?2)"),
                      ("List", "[?args]")
                     ]
 

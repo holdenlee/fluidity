@@ -48,6 +48,9 @@ _drange' = AStr "drange"
 _drange ::  Formula -> Formula -> Formula
 _drange = makeF2 _drange'
 
+_concatReplicate' = AStr "concatReplicate"
+_concatReplicate = makeF2 _concatReplicate'
+
 _mlist' = AStr "List"
 _mlist = T.Node _mlist'
 

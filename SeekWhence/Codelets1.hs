@@ -29,49 +29,109 @@ import Formulas
 import Search
 import SeekWhence
 import TreeState
+import Functions
 
 ranger = combineRuleToLRCodelet rangerf "range"
 replicator = combineRuleToLRCodelet replicatorf "replicate"
+generalizor = combineRuleToLRCodelet generalizorf ""
+--activation of this is always 1 right now...
+
+{-
+getUnusedVar :: Formula -> Int
+getUnusedVar f = 
+    let
+        fl = T.flatten f
+        fl' = 0:(mapMaybe (\x -> case x of
+                                    AInt m -> Just m
+                                    _ -> Nothing) 
+                 fl)
+    in
+      (L.maximum fl') + 1-}
 
 type Substitution2 = M.Map Atom Atom
 
 doNothing :: MState s ()
 doNothing = StateT (\x -> Just ((), x))
 
-generalizeStep :: MStater (TPath2 Atom, TPath2 Atom) (Substitution2, Bool)
-generalizeStep (sub, b) = 
+
+generalizorf :: Formula -> Formula -> Maybe Formula
+generalizorf f1 f2 = do
+  let startTPs = (start f1, start f2)
+  let unused = max (getUnusedVar f1) (getUnusedVar f2)
+  let ms = repeatUntilState (M.empty, True) (\(_,b) -> not b) (generalizeStep unused)
+  ((sub, _), (tp1,tp2)) <- runStateT ms startTPs
+  let f1' = zipUp tp1
+  if hasInt sub
+--get the first! 
+    then 
+        let (y,z) = (mapMaybe (\x -> case x of 
+                                       (AInt y, AInt z) -> Just (y,z)
+                                       _ -> Nothing) $ M.assocs sub)!!0
+        in
+          return $ _concatMap (_fun (_var unused) f1') (_mlist [_num y, _num z])
+    else 
+        return $ _concatReplicate f1' (_num 2) 
+
+
+repeatUntilState :: b -> (b -> Bool) -> MStater a b -> MState a b
+repeatUntilState startB testB ms = do
+  curB <- ms startB
+  if testB curB
+    then return curB
+    else repeatUntilState curB testB ms
+
+hasInt :: Substitution2 -> Bool
+hasInt = (any (\x -> case x of 
+                       AInt _ -> True
+                       _ -> False)) . M.keys
+
+--Bool is whether to keep going.
+generalizeStep :: Int -> MStater (TPath2 Atom, TPath2 Atom) (Substitution2, Bool)
+generalizeStep k (sub, b) = 
     StateT (\(tp1, tp2) -> 
                 let 
---State c (b,String)
+                    --do 1 step of depth-first search on both fomulas
                     ((at1, s1), tp1') = runState dFSStep2 tp1 
                     ((at2, s2), tp2') = runState dFSStep2 tp2 
                 in
-                  --Just ((sub, False), (tp1',tp2')))
                   if s1 /=s2 
-                  then Nothing 
+                  then Nothing  --the arities of the formulas at the current node do not match 
                   else 
-                      if s1 == "done" 
+                      if s1 == "done" --indicate that we are to stop
                       then Just ((sub, False), (tp1',tp2')) 
                       else 
-                         if (cur tp1' `M.member` sub) 
-                         then 
-                             if M.lookup (cur tp1') sub == Just (cur tp2') then Just ((sub, True), (tp1', tp2')) else Nothing
-                         else
-                             case cur tp1' of 
-                               AVar m -> 
+                          case (cur tp1') of
+                            AVar m -> --if it's a variable
                                    case M.lookup (AVar m) sub of
-                                     Just (AVar n) -> Just ((M.insert (AVar m) (AVar n) sub, True), (tp1', tp2'))
-                                     _ -> Nothing
---if the integers match
-                               AInt m -> 
-                                   if any (\x -> case x of 
-                                                   AInt _ -> True
-                                                   _ -> False) $ M.keys sub 
-                                   then Nothing
-                                   else 
-                                       case M.lookup (AInt m) sub of
-                                         Just (AInt n) -> Just ((M.insert (AInt m) (AInt n) sub, True), (tp1', tp2'))
-                                         _ -> Nothing)
+                                     Just vn -> 
+                                         if cur tp2' == vn then Just ((sub, True), (tp1', tp2')) else Nothing --make sure the variables match up.
+                                     Nothing -> 
+                                         case (cur tp2') of 
+                                           AVar n -> Just ((M.insert (AVar m) (AVar n) sub, True), (tp1', tp2')) --if this is the first time it is encountered, add to map.
+                                           _ -> Nothing --if it's not a variable, fail
+                            AInt m -> 
+                                case (cur tp2') of
+                                  AInt n -> if m==n 
+                                            then Just ((sub, True), (tp1', tp2')) 
+                                            else
+                                                case M.lookup (AInt m) sub of
+                                                  Just vn -> 
+                                                      if AInt n == vn then Just ((sub, True), (tp1' |> changeMe (_var k), tp2' |> changeMe (_var k))) else Nothing --make sure the ints match up.
+                                                  Nothing -> 
+                                                      if hasInt sub 
+                                                      then Nothing --if there's already an integer, fail. (Only generalize 1 integer at a time, at least for now.)
+                                                      else Just ((M.insert (AInt m) (AInt n) sub, True), (tp1' |> changeMe (_var k), tp2' |> changeMe (_var k)))
+                                  _ -> Nothing 
+                            _ -> if (cur tp1' == cur tp2') then Just ((sub, True), (tp1', tp2')) else Nothing
+           )
+
+{-
+generalizorf' :: (TPath2 Atom, TPath2 Atom) -> Maybe Formula
+generalizorf' tp1 tp2 = 
+
+generalizorf :: Formula -> Formula -> Maybe Formula
+generalizorf f1 f2 = 
+ -}   
 
 {-
 --n is unused var. mp is mapping between ints

@@ -33,3 +33,5 @@ Todo
 * Workspace
   * What's the right data structure? Could depend on domain. A graph? Hypergraph?
     * Have relationships be nodes themselves?
+* Codelets
+  * Generalizor: how to select the formulas to generalize?

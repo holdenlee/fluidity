@@ -7,7 +7,7 @@
  -XFlexibleContexts
 #-}
 
-module Search (Searchable, children, root, graft, SearchPath, TPath, TPath2, path, meTree, cur, curTree, up, down, prev, next, start, changeMe, emptyPath, node, dFSStep, dFSStep2) where
+module Search (Searchable, children, root, graft, SearchPath, TPath, TPath2, path, meTree, cur, curTree, up, down, prev, next, start, changeMe, emptyPath, node, dFSStep, dFSStep2, zipUp) where
 import System.Environment
 import Control.Monad
 import Data.Tree

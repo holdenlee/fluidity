@@ -42,7 +42,7 @@ main = do
   g <- getStdGen
   let world = World { workspace =wk,
                       temp =50,
-                      coderack = iEmpty |> iInsert replicator |> iInsert ranger,
+                      coderack = iEmpty |> iInsert replicator |> iInsert ranger |> iInsert generalizor,
                       slipnet = G.empty,
                       rng = g}
   repeatTimes 20 (logg pickAndRun (\wo -> putStrLn $ show $ workspace wo)) (return world)
