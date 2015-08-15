@@ -22,6 +22,7 @@ import Utilities
 import ParseUtilities
 import IMap
 import GraphUtils
+import RandomUtils
 
 import Mind
 
@@ -40,3 +41,27 @@ scoutAll w =
     for (_active w) ([],w) (\i (li,w1) ->
          case (scout i w1) of 
            (d, w2) -> ((i,d):li, w2))
+
+--calculate activation from temperature and self-reported activation
+tempActivation :: Double -> Double -> Double
+tempActivation t a = exp ((log a) * t)
+--should this involve depth in some way? Or maybe indirectly?
+
+calcActivation :: Mind wksp mes -> Double -> Double
+calcActivation m d = tempActivation (_temp m) d
+
+calcActivations :: Mind wksp mes -> [(Int, Double)] -> [(Int, Double)]
+calcActivations m = L.map (mapSnd (calcActivation m))
+
+getRandom :: Mind wksp mes -> (Double, Mind wksp mes)
+getRandom m = 
+    let (r, newGen) = randomR (0,1) (_rng m)
+    in (r, m{_rng = newGen})
+
+pickAndRun :: ([(Int, Double)], Mind wksp mem) -> Mind wksp mem
+pickAndRun (li, m) = 
+    let
+        (r, m') = getRandom m
+        chosen = li |> calcActivations m' |> normalizeList |> chooseByProbs r
+    in
+      runAgent chosen m'

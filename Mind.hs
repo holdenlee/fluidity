@@ -83,6 +83,15 @@ setAgent :: Int -> Agent (Mind wksp mes) mes -> Mind wksp mes -> Mind wksp mes
 setAgent n a w = w{_agents = M.insert n a (_agents w)}
 --easier way to update?
 
+runAgent :: Int -> Mind wksp mes -> Mind wksp mes
+runAgent n w = 
+    case (getAgent n w) of 
+      Agent a' -> 
+          let
+              (w', a2) = (_act a') w a'
+          in
+            setAgent n (Agent a2) w'
+
 --PART 3: Slipnet
 data Concept = Concept { _id :: Int,
                          _cname :: String,
