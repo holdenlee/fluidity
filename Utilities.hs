@@ -131,6 +131,9 @@ foldIterate f as x = foldl (flip f) x as
 foldIterate2:: (a->b->c->c)->[a]->[b]->c->c
 foldIterate2 f as bs x = foldl (\y -> \(xa, xb) -> f xa xb y) x (zip as bs)
 
+for :: [a] -> b -> (a -> b -> b) -> b
+for li x0 f = foldl (flip f) x0 li
+
 --for :: a -> (a -> a) -> (a -> Bool) -> (a -> a) -> a
 
 --NOTE: if you're doing this a lot, use array instead
