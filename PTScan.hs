@@ -28,6 +28,7 @@ import Mind
 
 --Carries out one "cycle" of the mind.
 
+{-| Ask the nth agent for its activation level (and allow it to do scouting). -}
 scout :: Int -> Mind wksp mem -> (Double, Mind wksp mem)
 scout n w = 
     case (getAgent n w) of 
@@ -35,6 +36,7 @@ scout n w =
           case (_scout a') w a' of
             (d, a2) -> (d, setAgent n (Agent a2) w)
 
+{-| Ask every active agent to scout. -}
 scoutAll :: Mind wksp mem -> ([(Int, Double)], Mind wksp mem)
 scoutAll w = 
     --for all the active indices, run scout. Add the activations to a list, and update the mind at each step.
@@ -42,7 +44,7 @@ scoutAll w =
          case (scout i w1) of 
            (d, w2) -> ((i,d):li, w2))
 
---calculate activation from temperature and self-reported activation
+{-| Calculate activation from temperature and self-reported activation -}
 tempActivation :: Double -> Double -> Double
 tempActivation t a = exp ((log a) * t)
 --should this involve depth in some way? Or maybe indirectly?
@@ -53,11 +55,13 @@ calcActivation m d = tempActivation (_temp m) d
 calcActivations :: Mind wksp mes -> [(Int, Double)] -> [(Int, Double)]
 calcActivations m = L.map (mapSnd (calcActivation m))
 
+{-| Get a random number in (0,1) from mind, and update the rng seed.-}
 getRandom :: Mind wksp mes -> (Double, Mind wksp mes)
 getRandom m = 
     let (r, newGen) = randomR (0,1) (_rng m)
     in (r, m{_rng = newGen})
 
+{-| Given the self-reported activations, pick a codelet and run -}
 pickAndRun :: ([(Int, Double)], Mind wksp mem) -> Mind wksp mem
 pickAndRun (li, m) = 
     let
