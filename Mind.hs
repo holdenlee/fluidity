@@ -20,6 +20,7 @@ import Data.Tuple
 import Data.Graph.Inductive as G
 import System.Random
 import Control.Lens
+--import Control.Lens.Getter
 
 import Utilities
 import ParseUtilities
@@ -67,7 +68,19 @@ instance Ord (Agent w mes) where
     compare a1 a2 =
         case a1 of Agent a1' -> case a2 of Agent a2' -> compare (_name a1') (_name a2')
 
--- * PART 2: Mind
+-- * PART 2: Slipnet
+data Concept = Concept { _id :: Int,
+                         _cname :: String,
+                         _activation :: Double,
+                         _depth :: Double
+                         --hardcoded in right now...
+                       } deriving (Show, Eq, Ord)
+
+--edges themselves are concepts!
+type Slipnet = G.Gr Concept Concept
+
+
+-- * PART 3: Mind
 {-| Mind having a workspace of type wksp and messages of type mes-}
 data Mind wksp mes = Mind {
                             _workspace :: wksp,
@@ -84,12 +97,23 @@ data Mind wksp mes = Mind {
                             _rng :: StdGen}
                             --can make an arbitrary RandomGen, but won't bother right now...
 
+makeLenses ''Mind
+
+indexLens :: Int -> Lens' (M.Map Int a) a
+indexLens n = lens (M.!n) (flip (M.insert n))
+
+--agentIndex :: Lens' (Mind wksp mes) Int
+
+agentIndex :: Int -> Lens' (Mind wksp mes) (Agent (Mind wksp mes) mes)
+agentIndex n = agents . (indexLens n)
+
 getAgent :: Int -> Mind wksp mes -> Agent (Mind wksp mes) mes
-getAgent n = ((M.!n) . _agents)
+getAgent n = (^. (agentIndex n))
+--((M.!n) . _agents)
 
 setAgent :: Int -> Agent (Mind wksp mes) mes -> Mind wksp mes -> Mind wksp mes
-setAgent n a w = w{_agents = M.insert n a (_agents w)}
---easier way to update?
+setAgent n = set (agentIndex n)
+--w{_agents = M.insert n a (_agents w)}
 
 runAgent :: Int -> Mind wksp mes -> Mind wksp mes
 runAgent n w =
@@ -100,13 +124,3 @@ runAgent n w =
           in
             setAgent n (Agent a2) w'
 
--- * PART 3: Slipnet
-data Concept = Concept { _id :: Int,
-                         _cname :: String,
-                         _activation :: Double,
-                         _depth :: Double
-                         --hardcoded in right now...
-                       } deriving (Show, Eq, Ord)
-
---edges themselves are concepts!
-type Slipnet = G.Gr Concept Concept
