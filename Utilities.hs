@@ -152,6 +152,14 @@ infixl 0 |>
 (|>) :: a -> (a -> b) -> b
 x |> f = f x
 
+infixr 0 <<|
+(<<|) :: (b -> c) -> (a -> b) -> (a -> c)
+(<<|) = (.)
+
+infixl 0 |>>
+(|>>) :: (a -> b) -> (b -> c) -> (a -> c)
+(|>>) = flip (.)
+
 --debug x y = x
 debug = flip trace
 
@@ -180,3 +188,15 @@ appendFun f x = (x, f x)
 mindex:: [a] -> Int -> Maybe a
 mindex li i = 
     if i>=0 && i<length li then Just (li!!i) else Nothing
+
+lclamp :: (Ord a) => a -> a -> a
+lclamp lo x = if x < lo then lo else x
+
+rclamp :: (Ord a) => a -> a -> a
+rclamp hi x = if x > hi then hi else x
+
+clamp :: (Ord a) => a -> a -> a -> a
+clamp lo hi x 
+    | x > hi    = hi
+    | x < lo    = lo
+    | otherwise = x

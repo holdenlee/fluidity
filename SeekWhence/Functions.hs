@@ -4,6 +4,9 @@
   -XTupleSections
 #-}
 
+{-|
+  Gives the version of haskell functions that create AST's readable by Mind. For example, _range2 1 5 makes the AST for range 1 5 = [1..5].
+-}
 module Functions where
 import System.Environment
 import Control.Monad
@@ -70,9 +73,3 @@ _concatMap = makeF2 _concatMap'
 
 _apply' = AStr "$"
 _apply = makeF2 _apply'
-
-{-
-makeFormulaFunc :: Atom -> ([Int] -> Formula)
-makeFormulaFunc f = (T.Node f) . (map (\x -> T.Node (AInt x) []))
-
--}

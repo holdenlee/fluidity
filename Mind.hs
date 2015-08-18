@@ -20,7 +20,6 @@ import Data.Tuple
 import Data.Graph.Inductive as G
 import System.Random
 import Control.Lens
---import Control.Lens.Getter
 
 import Utilities
 import ParseUtilities

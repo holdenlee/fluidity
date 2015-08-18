@@ -2,7 +2,10 @@
 
   -XExistentialQuantification
   -XTupleSections
+  -XRank2Types
 #-}
+
+{-# LANGUAGE TemplateHaskell #-}
 
 module Workspace where
 import System.Environment
@@ -13,11 +16,11 @@ import qualified Data.MultiMap as MM
 import Data.Maybe
 import Data.Char
 import qualified Data.Set as S
-import Data.Array
 import Data.Tuple
 import Data.Graph.Inductive as G
 import System.Random
 import Data.Tree as T
+import Control.Lens hiding ((|>))
 
 import Utilities
 import ParseUtilities
@@ -27,11 +30,21 @@ import Functions
 import TreeState
 import MathParser
 
+type ModifierList = M.Map String Double
+
+totalMod :: ModifierList -> Double
+totalMod = sum . M.elems
+
+modifier :: String -> Lens' ModifierList Double
+modifier modName = lens (fromMaybe 0 . M.lookup modName) (flip (M.insert modName))
+
 data Structure = Structure {_formula :: T.Tree Atom, 
                             _start :: Int,
                             _end :: Int,
-                            _strength :: Double
+                            _modifiers :: ModifierList
                            }
+
+makeLenses ''Structure
 
 instance Show Structure where
     show str = showFormula symLib $ _formula str
@@ -42,125 +55,84 @@ _length str = _end str - _start str + 1
 data EdgeType = Group deriving (Show)
 
 data Workspace = Workspace {_list :: [Int],
-                            board :: G.Gr Structure EdgeType,
-                            tops :: S.Set Int, --the nodes of the toplevel structures
-                            atTop :: MM.MultiMap Int Int
+                            _board :: G.Gr Structure EdgeType,
+                            _tops :: S.Set Int, --the nodes of the toplevel structures
+                            _atIndex :: MM.MultiMap Int Int,
+                            _atTop :: MM.MultiMap Int Int
                            }
+--Should make more efficient by making a priority queue and only looking at the top few... TODO.
+
+makeLenses ''Workspace
 
 instance Show Workspace where
-    show = prettify . board
+    show = prettify . _board
 
---get id of top structure at index
+{-| get id of top structure at index -}
 getTopStructureAt :: Int -> Workspace -> Int
 getTopStructureAt i wk =
-    (MM.lookup i $ atTop wk)!!0
---this is not good - let's assume only 1 atTop structure for each.
+    (MM.lookup i $ _atTop wk)!!0
+--let's assume for now there's only 1 atTop structure for each.
 
---add a structure on top of structures
+{-| add a structure on top of structures -}
 addFormulaOn :: [Int] -> Formula -> Workspace -> (Workspace, Int)
 addFormulaOn li f wk = 
     let
-        b = board wk
+        b = _board wk
         newN = (newNodes 1 b)!!0
         oldStrs = L.map (appendFun (fromJust . (G.lab b))) li 
         nowHiddens = L.concatMap (\(i,old) -> L.map (,i) [(_start old)..(_end old)]) oldStrs
         --list should be in order!
-        newStart = _start $ fromJust $ G.lab b $head li
+        newStart = _start $ fromJust $ G.lab b $ head li
         newEnd = _end $ fromJust $ G.lab b $ last li
-        str = Structure{_formula = f, _start = newStart, _end=newEnd, _strength = fromIntegral $ newEnd - newStart + 1}
-        --default strength is length
+        str = Structure{_formula = f, _start = newStart, _end=newEnd, _modifiers = M.empty}
     in
-      wk{board = board wk |> G.insNode (newN, str)
-                          |> (G.insEdges $ L.map (\x -> (newN, x, Group)) li),
-         tops = tops wk |> foldIterate S.delete li,
-         atTop = atTop wk |> foldIterate (MM.delete) (L.map fst nowHiddens)
-                          |> foldIterate (uncurry MM.insert) (L.map (,newN) [newStart..newEnd])} |> (,newN)
+      wk |> (over board (G.insNode (newN, str) . 
+                        (G.insEdges $ L.map (\x -> (newN, x, Group)) li)))
+         |> (over tops (foldIterate S.delete li))
+         |> (over atTop (foldIterate (MM.delete) (L.map fst nowHiddens) .
+                        (foldIterate (uncurry MM.insert) (L.map (,newN) [newStart..newEnd]))))
+         |> (over atIndex (foldIterate ((flip MM.insert) newN) [newStart..newEnd]))
+         |> (,newN)
 
 singletonStr :: (Int, Int) -> Structure
 singletonStr (i, n) = Structure{_formula = _singleton n,
-                             _start = i,
-                             _end = i,
-                             _strength = 1}
+                                _start = i,
+                                _end = i,
+                                _modifiers = M.empty}
 
 listToWorkspace :: [Int] -> Workspace
 listToWorkspace li = Workspace{_list = li,
-                               board = (G.empty |> insNodes (zip [1..length li] $ map singletonStr $ enumerate li)), 
-                               tops = (S.fromList [1..length li]),
-                               atTop = MM.fromList $ zip [1..length li] [1..length li]}
+                               _board = (G.empty |> insNodes (zip [1..length li] $ map singletonStr $ enumerate li)), 
+                               _tops = (S.fromList [1..length li]),
+                               _atTop = MM.fromList $ zip [1..length li] [1..length li],
+                               _atIndex = MM.fromList $ zip [1..length li] [1..length li]}
 --each is represented by a singleton list
 
-rangerPattern = parsePattern "range(?1,?2)"
-singlePattern = parsePattern "List(?1)"
-replPattern = parsePattern "replicate(?1,?2)"
-
---this is annoying to write out. Find nicer way?
-rangerf :: Formula -> Formula -> Maybe Formula
-rangerf f g = 
+{-| get the next top structure in list order (as opposed to the next *element*) -}
+getNextTop :: Int -> Workspace -> Maybe Int
+getNextTop i wk = 
     let
-        singlef = patternMatch' singlePattern f
-        rangef = patternMatch' rangerPattern f
-        singleg = patternMatch' singlePattern g
-        rangeg = patternMatch' rangerPattern g
+        b = _board wk 
     in
-      case (singlef, rangef, singleg, rangeg) of
-        (_, Just [a,b], Just [c], _) -> if c == b+1 then Just (_range2 a c) else Nothing
-        (_, Just [a,b], _ , Just [c,d]) -> if c == b+1 then Just (_range2 a d) else Nothing
-        (Just [a], _, Just [b], _) -> if b== a + 1 then Just (_range2 a b) else Nothing
-        _ -> Nothing
+      (MM.lookup (_end (fromJust $ G.lab b i) + 1) (_atTop wk)) `mindex` 0
 
-replicatorf :: Formula -> Formula -> Maybe Formula
-replicatorf f g = 
+{-| get the previous top structure in list order (as opposed to the next *element*) -}
+getPrevTop :: Int -> Workspace -> Maybe Int
+getPrevTop i wk = 
     let
-        singlef = patternMatch' singlePattern f
-        replf = patternMatch' replPattern f
-        singleg = patternMatch' singlePattern g
-        replg = patternMatch' replPattern g
+        b = _board wk 
     in
-      case (singlef, replf, singleg, replg) of
-        (_, Just [t,n], Just [n'], _) -> if n == n' then Just (_replicate2 (t+1) n) else Nothing
-        (_, Just [t,n], _ , Just [t',n']) -> if n == n' then Just (_replicate2 (t+t') n) else Nothing
-        (Just [n], _, Just [n'], _) -> if n==n' then Just (_replicate2  2 n) else Nothing
-        _ -> Nothing
+      (MM.lookup (_start (fromJust $ G.lab b i) - 1) (_atTop wk)) `mindex` 0
 
---Should each structure have a strength? Relative importance? Happiness? Salience? (weighted average of importance and unhappiness)
---Formula -> Formula -> Maybe Formula
-
---get the next top structure in list order (as opposed to the next *element*)
-getNextStructure :: Int -> Workspace -> Maybe Int
-getNextStructure i wk = 
-    let
-        b = board wk 
-    in
-      (MM.lookup (_end (fromJust $ G.lab b i) + 1) (atTop wk)) `mindex` 0
-
+{-| Given a way of building a formula from 2 formulas, turn this into an action on the workspace. NOTE: only goes forward now.-}
 combineRuleToAction :: (Formula -> Formula -> Maybe Formula) -> Int -> Workspace -> Maybe (Workspace, Int)
 combineRuleToAction f i wk = 
     do
-      let b = board wk
+      let b = _board wk
       l <- G.lab b i
-      i' <- getNextStructure i wk
+      i' <- getNextTop i wk
       l' <- G.lab b i'
       -- l' <- (MM.lookup atTop (_end l + 1)) `index` 0
       result <- f (_formula l) (_formula l')
       return (addFormulaOn [i,i'] result wk)
-
-(.|) :: (a -> Maybe a) -> (a -> Maybe a) -> a -> Maybe a
-f .| g = \x -> 
-         case f x of 
-           Just y -> Just y
-           Nothing -> 
-               case g x of
-                 Just z -> Just z
-                 Nothing -> Nothing
-
-(.&) :: (a -> Maybe a) -> (a -> Maybe a) -> a -> Maybe a
-(.&) = (>=>)
-
-tryDo :: (a -> Maybe a) -> a -> Maybe a
-tryDo f x = case f x of
-              Just y -> Just y
-              Nothing -> Just x
-
-moveRight :: Workspace -> Int -> Maybe Int
-moveRight = flip getNextStructure
 

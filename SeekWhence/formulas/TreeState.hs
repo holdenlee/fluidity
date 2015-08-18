@@ -7,7 +7,7 @@
  -XFlexibleContexts
 #-}
 
-module TreeState where
+module TreeState (Substitution, MState, TreeState, TreeState', MStater, MTreeState, MTreeState', put2, replaceVal, joinWith, repeatUntilState, graftPattern, matchJustSymbol, matchJustSymbol', isInteger, parsePattern, patternMatch, patternMatch') where
 import System.Environment
 import Control.Monad
 import Data.Tree
@@ -20,24 +20,27 @@ import Search
 import MathParser
 import Formulas
 
+{-| A substitution tells us which atoms (typically variables) to replace with which formulas.-}
 type Substitution = M.Map Atom Formula
 
+{-| A state that has a Maybe b. -}
 type MState s b = StateT s Maybe b
+{-| The state is given by a formula (the subtree that the parser is looking at). -}
 type TreeState c = StateT Formula Maybe c
+{-| The state is a formula, and the return value is a substitution. This is the workhorse of pattern matching in a tree. -}
 type TreeState' = TreeState Substitution
 type MStater s b = b -> MState s b
 type MTreeState c = c -> TreeState c
 type MTreeState' = Substitution -> TreeState'
 
---put' :: b -> MState s b
---put' b' = state $ (\s -> ())
-
+-- * Basic functions for MState
 put2 :: s -> b -> MState s b
 put2 s' b' = state $ (\_ -> (b',s'))
 
 replaceVal :: MState s c -> b -> MState s b
 replaceVal s1 x = s1 >> (return x)
 
+{-| Given a way to generate children from a state (ex. if a state is a tree), and a list of functions corresponding to the children, chain them together to make another function. -}
 joinWith :: (s -> [s]) -> [MStater s b] -> MStater s b
 joinWith childs staters b1 =
     do
@@ -46,10 +49,19 @@ joinWith childs staters b1 =
       --put the state in and then do g.
       (foldl1 (>=>) $ L.map (\(si, g) -> (put2 si) >=> g) $ zip ss staters) b1
 
+repeatUntilState :: b -> (b -> Bool) -> MStater a b -> MState a b
+repeatUntilState startB testB ms = do
+  curB <- ms startB
+  if testB curB
+    then return curB
+    else repeatUntilState curB testB ms
+
+-- * Functions for MTreeState.
+{-| joinWith specialized to MTreeState. Give the function corresponding to the root and to the children.  -}
 graftPattern :: MTreeState c -> [MTreeState c] -> MTreeState c
 graftPattern rootF childFs = joinWith (\input -> input:(children input)) (rootF:childFs)
 
---try to match the current node (root of the current tree) with the atom. Returns Nothing if it fails.
+{-| try to match the current node (root of the current tree) with the atom. Returns Nothing if it fails. -}
 matchJustSymbol :: Atom -> TreeState ()
 matchJustSymbol atom = StateT (\f -> if root f == atom 
                                      then Just ((),f) 
@@ -85,6 +97,10 @@ formulaToPattern tr =
     in
       graftPattern rootPattern patts 
 
+{-| Use this to create pattern matchers, for example 
+     parsePattern "range(?1,?2)"
+See PatternMatchers.hs.
+-}
 parsePattern :: String -> MTreeState'
 parsePattern = formulaToPattern . parseFun
 
@@ -93,14 +109,6 @@ patternMatch mts f =
     do
       subs <- evalStateT (mts M.empty) f
       return $ elems subs
-      
-atomToInt :: Atom -> Int
-atomToInt at = case at of
-                 AInt x -> x
-                 AVar y -> y
-                 _ -> -1
-
-formulaToInt = atomToInt . root
 
 patternMatch' :: MTreeState' -> Formula -> Maybe [Int]
 patternMatch' x y = fmap (L.map formulaToInt) $ patternMatch x y

@@ -1,3 +1,8 @@
+{-# OPTIONS
+
+  -XRank2Types
+#-}
+
 module GraphUtils where
 import System.Environment
 import Control.Monad
@@ -10,6 +15,7 @@ import qualified Data.Set as S
 import Data.Array
 import Data.Tuple
 import Data.Graph.Inductive as G
+import Control.Lens hiding ((|>))
 --import Search
 
 import Utilities
@@ -49,3 +55,14 @@ mkBidir def vs es =
         es2 = L.unionBy (\(x,y,_) (x1,y1,_) -> x==x1 && y==y1) es es'
     in 
       G.mkGraph vs es2
+
+contextLens :: G.Node -> Lens' (G.Gr a b) (G.Context a b)
+contextLens n = lens (flip G.context $ n) 
+                     (\g (ins, _, lab, outs) -> 
+                          g |> delNode n 
+                            |> insNode (n, lab)
+                            |> insEdges (L.map (\(l, x) -> (x, n, l)) ins)
+                            |> insEdges (L.map (\(l, x) -> (n, x, l)) outs))
+
+nodeIndex :: G.Node -> Lens' (G.Gr a b) a
+nodeIndex n = (contextLens n) . _3

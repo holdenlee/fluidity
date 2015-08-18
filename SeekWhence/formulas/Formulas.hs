@@ -1,29 +1,21 @@
 module Formulas where
-{-import System.Environment
-import Control.Monad
-import qualified Data.List as L
-import qualified Data.Map.Strict as M
-import qualified Data.MultiMap as MM
-import Data.Maybe
-import Data.Char
-import qualified Data.Set as S
-import Data.Array
-import Data.Tuple
-import Data.Graph.Inductive as G
-import System.Random-}
+
 import qualified Data.Map.Strict as M
 import qualified Data.Tree as T
 
 import Utilities
 import Search
 
+{-| An atom is either the name of a function, an integer (the only basic type right now), or a variable. -}
 data Atom = AStr String | AInt Int | AVar Int deriving (Show, Eq, Ord)
 
+{-| A formula is a tree of atoms, for example, [1..5] would be Node (AStr [Node (AInt 1) [], Node (AInt 5) []]) -}
 type Formula = T.Tree Atom
 
---map from symbol to display rule
+{-| map from symbol to display rule -}
 type SymbolLib = M.Map String String
 
+{-| All functions that Mind comprehends are here.-}
 symLib :: SymbolLib
 symLib = M.fromList [("range", "[?1..?2]"),
                      ("replicate", "(replicate ?1 ?2)"),
@@ -33,3 +25,11 @@ symLib = M.fromList [("range", "[?1..?2]"),
                      ("List", "[?args]")
                     ]
 
+atomToInt :: Atom -> Int
+atomToInt at = case at of
+                 AInt x -> x
+                 AVar y -> y
+                 _ -> -1
+
+formulaToInt :: Formula -> Int
+formulaToInt = atomToInt . root
