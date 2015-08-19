@@ -47,7 +47,7 @@ instance (Show a, Show b) => Show (MM.MultiMap a b) where
 data ProgramInfo = ProgramInfo {deps:: MM.MultiMap String String
                  , subfields:: Map.Map String (Map.Map String String)
                  , current:: String
-		 , fields:: [String]
+                 , fields:: [String]
                  , currentFile:: String
                  --, names:: Map.Map String String
                  } deriving Show

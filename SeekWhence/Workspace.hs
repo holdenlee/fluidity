@@ -89,7 +89,7 @@ addFormulaOn li f wk =
         newEnd = _end $ fromJust $ G.lab b $ last li
         str = Structure{_formula = f, _start = newStart, _end=newEnd, _modifiers = M.empty}
     in
-      wk |> (over board (G.insNode (newN, str) . 
+      wk |> (over board (G.insNode (newN, str) |>> 
                         (G.insEdges $ L.map (\x -> (newN, x, Group)) li)))
          |> (over tops (foldIterate S.delete li))
          |> (over atTop (foldIterate (MM.delete) (L.map fst nowHiddens) .

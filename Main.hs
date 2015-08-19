@@ -38,15 +38,22 @@ logg f disp ia =
       disp result
       return result
 
-main = do
-  let li =[1,1,2,1,2,3,1,2,3,4]
-  let wk = listToWorkspace li
+initMind :: [Int] -> [(Int, Agent (Mind Workspace mes) mes)] -> StdGen -> Mind Workspace mes
+initMind li ags g = 
+    Mind { _workspace = listToWorkspace li,
+           _temp =50,
+           _agents = M.empty |> insertMultiple ags,
+           _active = map fst ags,
+           _slipnet = G.empty,
+           _followers = MM.empty,
+           _rng = g}
+
+main = runOnList [1,1,2,1,2,3,1,2,3,4] 20
+
+runOnList li n = do
   g <- getStdGen
-  let mind = Mind { _workspace =wk,
-                    _temp =50,
-                    _agents = M.empty |> insertMultiple [(1, (Agent replicator)), (2, Agent ranger)],
-                    _active = [1, 2],
-                    _slipnet = G.empty,
-                    _followers = MM.empty,
-                    _rng = g}
-  repeatTimes 20 (logg runOneCycle (\m -> putStrLn $ show $ _workspace m)) (return mind)
+  let mind = initMind li [(1, (Agent replicator)), (2, Agent ranger)] g
+  repeatTimes n (logg runOneCycle (\m -> putStrLn $ show $ _workspace m)) (return mind)
+
+test1 = runOnList [1,1,2,2,1,2,3,3,3,1,2,3,4,4,4,4]
+

@@ -42,11 +42,12 @@ scoutAll w =
     --for all the active indices, run scout. Add the activations to a list, and update the mind at each step.
     for (_active w) ([],w) (\i (li,w1) ->
          case (scoutOne i w1) of 
-           (d, w2) -> ((i,d):li, w2))
+           (d, w2) -> ((i,d):li, w2)) `debugSummary` fst
 
 {-| Calculate activation from temperature and self-reported activation -}
 tempActivation :: Double -> Double -> Double
-tempActivation t a = exp ((log a) * t)
+tempActivation t a = exp (a * t / 1000)
+--should figure out what work better here... fine-tune.
 --should this involve depth in some way? Or maybe indirectly?
 
 calcActivation :: Mind wksp mes -> Double -> Double
@@ -55,12 +56,6 @@ calcActivation m d = tempActivation (_temp m) d
 calcActivations :: Mind wksp mes -> [(Int, Double)] -> [(Int, Double)]
 calcActivations m = L.map (mapSnd (calcActivation m))
 
---{-| Get a random number in (0,1) from mind, and update the rng seed.-}
---getRandom :: Mind wksp mes -> (Double, Mind wksp mes)
---getRandom m = 
---    let (r, newGen) = randomR (0,1) (_rng m)
---    in (r, m{_rng = newGen})
-
 {-| Given the self-reported activations, pick a codelet and run -}
 pickAndRun :: ([(Int, Double)], Mind wksp mem) -> Mind wksp mem
 pickAndRun (li, m) = 
@@ -68,6 +63,6 @@ pickAndRun (li, m) =
         (r, m') = getRandom (0,1) m
         chosen = li |> calcActivations m' |> normalizeList |> chooseByProbs r
     in
-      runAgent chosen m'
+      runAgent chosen m' `debug` ("choosing agent #" ++ (show chosen))
 
 runOneCycle = scoutAll |>> pickAndRun

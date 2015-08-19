@@ -59,14 +59,15 @@ getPMActivations b w a =
                    ((cid, str), lclamp 0.5 $ fromIntegral (_length str) + totalMod (_modifiers str)))
             (filter (\x -> null $ ((_atIndex $ _workspace w) MM.! x) `L.intersect` (S.toList $ _childStructs $ _memory a)) [1..(length $ _list $ _workspace w)])) else [])
 
-makeCombineRule' :: (MTreeState', MTreeState', [Int] -> [Int] -> Maybe Formula) -> Formula -> Formula -> Maybe Formula
+makeCombineRule' :: (Show a) => (MTreeState', MTreeState', [Int] -> [Int] -> Maybe a) -> Formula -> Formula -> Maybe a
 makeCombineRule' (m1, m2, f) f1 f2 = 
     case (patternMatch' m1 f1, patternMatch' m2 f2) of
-      (Just li1, Just li2) -> f li1 li2
-      _ -> Nothing
+      (Just li1, Just li2) -> f li1 li2 --`debug` ("CR:"++(show (li1, li2)))
+      _ -> Nothing --`debug` ("No!" ++ (show (patternMatch' m1 f1, patternMatch' m2 f2)))
 
-makeCombineRules' :: [(MTreeState', MTreeState', [Int] -> [Int] -> Maybe Formula)] -> Formula -> Formula -> Maybe Formula
-makeCombineRules' li f1 f2 = foldl (>>) Nothing (map (\x -> makeCombineRule' x f1 f2) li)
+--debugging...
+makeCombineRules' :: (Show a) => [(MTreeState', MTreeState', [Int] -> [Int] -> Maybe a)] -> Formula -> Formula -> Maybe a
+makeCombineRules' li f1 f2 = foldl (orElse) Nothing (map (\x -> makeCombineRule' x f1 f2) li) -- |> debugShow
 
 {-| Given a rule for combining formulas, tries to combine the formulas at the given location in the workspace. If successful it returns Just the new workspace along with the index of the new formula. Else returns Nothing. -}
 combineRuleToAction :: (Formula -> Formula -> Maybe Formula) -> (Int, Structure) -> (Int, Structure) -> Workspace -> Maybe (Workspace, Int)
@@ -80,11 +81,12 @@ makePatternMatcher' :: String -> [(MTreeState', MTreeState', [Int] -> [Int] -> M
 makePatternMatcher' myName li =
     Agent' {_name = myName,
             --look at total strength of child structures
-            _scout = \w a ->
+            _scout = \w a -> (,a) $ lclamp 1 $ sum $ map snd $ getPMActivations False w a,
+{-
                      let 
                          childIDs = _childStructs $ _memory a
                      in
-                       (sum $ S.map (\cid -> let str = w ^. (workspace . board . nodeIndex cid) in lclamp 0.5 $ fromIntegral (_length str) + totalMod (_modifiers str)) childIDs, a),
+                       (sum $ S.map (\cid -> let str = w ^. (workspace . board . nodeIndex cid) in lclamp 0.5 $ fromIntegral (_length str) + totalMod (_modifiers str)) childIDs, a),-}
 --the activation of a structure is the length plus any modifiers, and clamped to be at least 0.5
             _act = \w a ->
                    let
@@ -93,24 +95,26 @@ makePatternMatcher' myName li =
                        (r,w') = getRandom (0,1) w -- x::Double
                        r'::Double
                        (r',w'') = getRandom (0,1) w' 
-                       structs = getPMActivations True w a |> debugShow
+                       structs = getPMActivations True w a -- |> debugShow
                        (n1, str1) = (chooseByProbs r $ normalizeList structs) 
-                       l_r = L.filter (\((i, _), _) -> or $ map (\x -> i `elem` ((w ^. (workspace.atIndex)) MM.! x)) [(_start (str1) - 1), (_end (str1) + 1)]) structs |> debugShow
+                       l_r = L.filter (\((i, _), _) -> or $ map (\x -> i `elem` ((w ^. (workspace.atIndex)) MM.! x)) [(_start (str1) - 1), (_end (str1) + 1)]) structs -- |> debugShow
 --`debug` (show
 --                        (L.filter (\((i, _), _) -> or $ map (\x -> i `elem` ((w ^. (workspace.atIndex)) MM.! x)) [(_start (str1) - 1), (_end (str1) + 1)]) structs))
 --`debug` (show (_start str1, _end str1))
+--careful of overlapping
                    in
-                     if null l_r `debugSummary` (\_ -> ((w ^. (workspace.atIndex), "Null L/R")))
-                     then (w'', a)
+                     if null l_r --`debugSummary` (\_ -> ((n1, str1), (chooseByProbs r' $ normalizeList l_r)))
+                     then (w'', a) --`debugSummary` (\_ -> "FAIL")
                      else 
                          let 
-                             (n2, str2) = (chooseByProbs r' $ normalizeList l_r) `debugSummary` ("2:",)
+                             (n2, str2) = (chooseByProbs r' $ normalizeList l_r) --`debugSummary` ("2:",)
+                             ((n1',str1'), (n2', str2')) = (if (_start str1 < _start str2) then id else swap) ((n1,str1), (n2, str2)) -- |> debugShow
                          in
-                           case action (n1, str1) (n2, str2) (_workspace w) of
+                           case action (n1', str1') (n2', str2') (_workspace w) of -- `debug` (show ((n1',str1'), (n2', str2')))  of
                              Just (wk', i) -> 
                                  (w'' |> set workspace wk', 
-                                  a & memory . childStructs %~ (S.delete n1 .
-                                                                S.delete n2 .
+                                  a & memory . childStructs %~ (S.delete n1' .
+                                                                S.delete n2' .
                                                                 S.insert i))
                              Nothing -> (w'',a),
             _memory = PMMemory S.empty,
