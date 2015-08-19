@@ -2,6 +2,7 @@
 
   -XExistentialQuantification
   -XRank2Types
+  -XTupleSections
 #-}
 
 {-# LANGUAGE TemplateHaskell #-}
@@ -51,12 +52,12 @@ getPMActivations b w a =
                      str = w ^. (workspace . board . nodeIndex cid) 
                  in 
                    ((cid, str), lclamp 0.5 $ fromIntegral (_length str) + totalMod (_modifiers str))) (S.toList $ _childStructs $ _memory a) ++ 
-        (map (\cid -> 
+        (if b then (map (\cid -> 
                  let 
                      str = w ^. (workspace . board . nodeIndex cid) 
                  in 
                    ((cid, str), lclamp 0.5 $ fromIntegral (_length str) + totalMod (_modifiers str)))
-            (filter (\x -> null $ ((_atIndex $ _workspace w) MM.! x) `L.intersect` (S.toList $ _childStructs $ _memory a)) [1..(length $ _list $ _workspace w)]))
+            (filter (\x -> null $ ((_atIndex $ _workspace w) MM.! x) `L.intersect` (S.toList $ _childStructs $ _memory a)) [1..(length $ _list $ _workspace w)])) else [])
 
 makeCombineRule' :: (MTreeState', MTreeState', [Int] -> [Int] -> Maybe Formula) -> Formula -> Formula -> Maybe Formula
 makeCombineRule' (m1, m2, f) f1 f2 = 
@@ -92,22 +93,26 @@ makePatternMatcher' myName li =
                        (r,w') = getRandom (0,1) w -- x::Double
                        r'::Double
                        (r',w'') = getRandom (0,1) w' 
-                       structs = getPMActivations True w a
-                       (n1, str1) = chooseByProbs r $ normalizeList structs
-                       l_r = L.filter (\((i, _), _) -> or $ map (\x -> i `elem` ((w ^. (workspace.atIndex)) MM.! x)) [(_start (str1) - 1), (_end (str1) + 1)]) structs
+                       structs = getPMActivations True w a |> debugShow
+                       (n1, str1) = (chooseByProbs r $ normalizeList structs) 
+                       l_r = L.filter (\((i, _), _) -> or $ map (\x -> i `elem` ((w ^. (workspace.atIndex)) MM.! x)) [(_start (str1) - 1), (_end (str1) + 1)]) structs |> debugShow
+--`debug` (show
+--                        (L.filter (\((i, _), _) -> or $ map (\x -> i `elem` ((w ^. (workspace.atIndex)) MM.! x)) [(_start (str1) - 1), (_end (str1) + 1)]) structs))
+--`debug` (show (_start str1, _end str1))
                    in
-                     if null l_r 
+                     if null l_r `debugSummary` (\_ -> ((w ^. (workspace.atIndex), "Null L/R")))
                      then (w'', a)
                      else 
                          let 
-                             (n2, str2) = chooseByProbs r' $ normalizeList l_r
+                             (n2, str2) = (chooseByProbs r' $ normalizeList l_r) `debugSummary` ("2:",)
                          in
                            case action (n1, str1) (n2, str2) (_workspace w) of
                              Just (wk', i) -> 
-                                 (w |> set workspace wk', 
+                                 (w'' |> set workspace wk', 
                                   a & memory . childStructs %~ (S.delete n1 .
                                                                 S.delete n2 .
-                                                                S.insert i)),
+                                                                S.insert i))
+                             Nothing -> (w'',a),
             _memory = PMMemory S.empty,
             _inbox = []}
                                               

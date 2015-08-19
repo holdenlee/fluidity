@@ -45,7 +45,7 @@ main = do
   let mind = Mind { _workspace =wk,
                     _temp =50,
                     _agents = M.empty |> insertMultiple [(1, (Agent replicator)), (2, Agent ranger)],
-                    _active = [],
+                    _active = [1, 2],
                     _slipnet = G.empty,
                     _followers = MM.empty,
                     _rng = g}
