@@ -29,8 +29,8 @@ import Mind
 --Carries out one "cycle" of the mind.
 
 {-| Ask the nth agent for its activation level (and allow it to do scouting). -}
-scout :: Int -> Mind wksp mem -> (Double, Mind wksp mem)
-scout n w = 
+scoutOne :: Int -> Mind wksp mem -> (Double, Mind wksp mem)
+scoutOne n w = 
     case (getAgent n w) of 
       Agent a' -> 
           case (_scout a') w a' of
@@ -41,7 +41,7 @@ scoutAll :: Mind wksp mem -> ([(Int, Double)], Mind wksp mem)
 scoutAll w = 
     --for all the active indices, run scout. Add the activations to a list, and update the mind at each step.
     for (_active w) ([],w) (\i (li,w1) ->
-         case (scout i w1) of 
+         case (scoutOne i w1) of 
            (d, w2) -> ((i,d):li, w2))
 
 {-| Calculate activation from temperature and self-reported activation -}
@@ -55,17 +55,19 @@ calcActivation m d = tempActivation (_temp m) d
 calcActivations :: Mind wksp mes -> [(Int, Double)] -> [(Int, Double)]
 calcActivations m = L.map (mapSnd (calcActivation m))
 
-{-| Get a random number in (0,1) from mind, and update the rng seed.-}
-getRandom :: Mind wksp mes -> (Double, Mind wksp mes)
-getRandom m = 
-    let (r, newGen) = randomR (0,1) (_rng m)
-    in (r, m{_rng = newGen})
+--{-| Get a random number in (0,1) from mind, and update the rng seed.-}
+--getRandom :: Mind wksp mes -> (Double, Mind wksp mes)
+--getRandom m = 
+--    let (r, newGen) = randomR (0,1) (_rng m)
+--    in (r, m{_rng = newGen})
 
 {-| Given the self-reported activations, pick a codelet and run -}
 pickAndRun :: ([(Int, Double)], Mind wksp mem) -> Mind wksp mem
 pickAndRun (li, m) = 
     let
-        (r, m') = getRandom m
+        (r, m') = getRandom (0,1) m
         chosen = li |> calcActivations m' |> normalizeList |> chooseByProbs r
     in
       runAgent chosen m'
+
+runOneCycle = scoutAll |>> pickAndRun

@@ -64,6 +64,9 @@ data Workspace = Workspace {_list :: [Int],
 
 makeLenses ''Workspace
 
+mmi :: (Ord a) => a -> Lens (MM.MultiMap a b) (MM.MultiMap a b) [b] b 
+mmi i = lens (MM.! i) (flip (MM.insert i))
+
 instance Show Workspace where
     show = prettify . _board
 
@@ -123,16 +126,4 @@ getPrevTop i wk =
         b = _board wk 
     in
       (MM.lookup (_start (fromJust $ G.lab b i) - 1) (_atTop wk)) `mindex` 0
-
-{-| Given a way of building a formula from 2 formulas, turn this into an action on the workspace. NOTE: only goes forward now.-}
-combineRuleToAction :: (Formula -> Formula -> Maybe Formula) -> Int -> Workspace -> Maybe (Workspace, Int)
-combineRuleToAction f i wk = 
-    do
-      let b = _board wk
-      l <- G.lab b i
-      i' <- getNextTop i wk
-      l' <- G.lab b i'
-      -- l' <- (MM.lookup atTop (_end l + 1)) `index` 0
-      result <- f (_formula l) (_formula l')
-      return (addFormulaOn [i,i'] result wk)
 

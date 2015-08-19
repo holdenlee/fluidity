@@ -2,6 +2,7 @@ module Formulas where
 
 import qualified Data.Map.Strict as M
 import qualified Data.Tree as T
+import qualified Data.Set as S
 
 import Utilities
 import Search
@@ -33,3 +34,19 @@ atomToInt at = case at of
 
 formulaToInt :: Formula -> Int
 formulaToInt = atomToInt . root
+
+getUsedVars :: Formula -> S.Set Int
+getUsedVars (T.Node x li) = 
+    S.unions $
+               (case x of 
+                  AVar n -> S.singleton n
+                  _ -> S.empty):(map getUsedVars li)
+
+getMax :: S.Set Int -> Int
+getMax s = 
+    case (fmap fst $ S.maxView $ s) of
+      Nothing -> 1
+      Just n -> n+1
+
+getUnusedVar :: Formula -> Int
+getUnusedVar = getMax . getUsedVars

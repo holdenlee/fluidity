@@ -1,6 +1,7 @@
 module MaybeUtils where
 
 import Data.Maybe
+import Control.Monad
 
 (.|) :: (a -> Maybe a) -> (a -> Maybe a) -> a -> Maybe a
 f .| g = \x -> 

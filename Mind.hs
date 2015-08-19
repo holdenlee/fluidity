@@ -123,3 +123,10 @@ runAgent n w =
           in
             setAgent n (Agent a2) w'
 
+{-| Get a random number in (lo, hi) from mind, and update the rng seed.-}
+getRandom :: (Random a) => (a, a) -> Mind wksp mes -> (a, Mind wksp mes)
+getRandom (lo, hi) w = 
+    let
+        (x, newGen) = randomR (lo, hi) (_rng w)
+    in
+      (x, w{_rng = newGen})
