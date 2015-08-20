@@ -7,7 +7,7 @@
  -XFlexibleContexts
 #-}
 
-module TreeState (Substitution, MState, TreeState, TreeState', MStater, MTreeState, MTreeState', put2, replaceVal, joinWith, repeatUntilState, graftPattern, matchJustSymbol, matchJustSymbol', isInteger, parsePattern, patternMatch, patternMatch') where
+module TreeState (Substitution, Substitution2, MState, TreeState, TreeState', MStater, MTreeState, MTreeState', put2, replaceVal, joinWith, repeatUntilState, graftPattern, matchJustSymbol, matchJustSymbol', isInteger, parsePattern, patternMatch, patternMatch', hasInt) where
 import System.Environment
 import Control.Monad
 import Data.Tree
@@ -22,6 +22,7 @@ import Formulas
 
 {-| A substitution tells us which atoms (typically variables) to replace with which formulas.-}
 type Substitution = M.Map Atom Formula
+type Substitution2 = M.Map Atom Atom
 
 {-| A state that has a Maybe b. -}
 type MState s b = StateT s Maybe b
@@ -113,4 +114,7 @@ patternMatch mts f =
 patternMatch' :: MTreeState' -> Formula -> Maybe [Int]
 patternMatch' x y = fmap (L.map formulaToInt) $ patternMatch x y
                                      
-
+hasInt :: Substitution2 -> Bool
+hasInt = (any (\x -> case x of 
+                       AInt _ -> True
+                       _ -> False)) . M.keys

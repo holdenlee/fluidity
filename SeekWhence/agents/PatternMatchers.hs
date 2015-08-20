@@ -44,20 +44,24 @@ data PMMemory = PMMemory {_childStructs :: S.Set Int} deriving Show
 
 makeLenses ''PMMemory
 
-{-| Find the activation of child structures. The bool is whether to include singletons. -}
-getPMActivations :: Bool -> Mind Workspace mes -> Agent' (Mind Workspace mes) PMMemory mes -> [((Int, Structure), Double)]
-getPMActivations b w a = 
-        map (\cid -> 
+getPMActivations :: Bool -> Mind Workspace mes -> [Int] -> [((Int, Structure), Double)]
+getPMActivations b w ids = 
+    map (\cid -> 
                  let 
                      str = w ^. (workspace . board . nodeIndex cid) 
                  in 
-                   ((cid, str), lclamp 0.5 $ fromIntegral (_length str) + totalMod (_modifiers str))) (S.toList $ _childStructs $ _memory a) ++ 
+                   ((cid, str), lclamp 0.5 $ fromIntegral (_length str) + totalMod (_modifiers str))) ids ++ 
         (if b then (map (\cid -> 
                  let 
                      str = w ^. (workspace . board . nodeIndex cid) 
                  in 
                    ((cid, str), lclamp 0.5 $ fromIntegral (_length str) + totalMod (_modifiers str)))
-            (filter (\x -> null $ ((_atIndex $ _workspace w) MM.! x) `L.intersect` (S.toList $ _childStructs $ _memory a)) [1..(length $ _list $ _workspace w)])) else [])
+            (filter (\x -> null $ ((_atIndex $ _workspace w) MM.! x) `L.intersect` ids) [1..(length $ _list $ _workspace w)])) else [])
+
+{-| Find the activation of child structures. The bool is whether to include singletons. -}
+getChildPMActivations :: Bool -> Mind Workspace mes -> Agent' (Mind Workspace mes) PMMemory mes -> [((Int, Structure), Double)]
+getChildPMActivations b w a = getPMActivations b w (S.toList $ _childStructs $ _memory a)
+        
 
 makeCombineRule' :: (Show a) => (MTreeState', MTreeState', [Int] -> [Int] -> Maybe a) -> Formula -> Formula -> Maybe a
 makeCombineRule' (m1, m2, f) f1 f2 = 
@@ -77,40 +81,30 @@ combineRuleToAction f (n1, str1) (n2, str2) wk =
         return $ addFormulaOn [n1,n2] newStr wk        
 --make it report success?
 
-makePatternMatcher' :: String -> [(MTreeState', MTreeState', [Int] -> [Int] -> Maybe Formula)] -> Agent' (Mind Workspace mes) PMMemory mes
-makePatternMatcher' myName li =
+makeFormulaAgent :: String -> (Formula -> Formula -> Maybe Formula) -> Agent' (Mind Workspace mes) PMMemory mes
+makeFormulaAgent myName action = 
     Agent' {_name = myName,
             --look at total strength of child structures
-            _scout = \w a -> (,a) $ lclamp 1 $ sum $ map snd $ getPMActivations False w a,
-{-
-                     let 
-                         childIDs = _childStructs $ _memory a
-                     in
-                       (sum $ S.map (\cid -> let str = w ^. (workspace . board . nodeIndex cid) in lclamp 0.5 $ fromIntegral (_length str) + totalMod (_modifiers str)) childIDs, a),-}
---the activation of a structure is the length plus any modifiers, and clamped to be at least 0.5
+            _scout = \w a -> (,a) $ sum $ map snd $ getChildPMActivations False w a,
             _act = \w a ->
                    let
-                       action = combineRuleToAction $ makeCombineRules' li
                        r::Double
                        (r,w') = getRandom (0,1) w -- x::Double
                        r'::Double
                        (r',w'') = getRandom (0,1) w' 
-                       structs = getPMActivations True w a -- |> debugShow
+                       structs = getChildPMActivations True w a -- |> debugShow
                        (n1, str1) = (chooseByProbs r $ normalizeList structs) 
-                       l_r = L.filter (\((i, _), _) -> or $ map (\x -> i `elem` ((w ^. (workspace.atIndex)) MM.! x)) [(_start (str1) - 1), (_end (str1) + 1)]) structs -- |> debugShow
---`debug` (show
---                        (L.filter (\((i, _), _) -> or $ map (\x -> i `elem` ((w ^. (workspace.atIndex)) MM.! x)) [(_start (str1) - 1), (_end (str1) + 1)]) structs))
---`debug` (show (_start str1, _end str1))
+                       l_r = L.filter (\((i, _), _) -> or $ map (\x -> i `elem` ((w ^. (workspace.atIndex)) MM.! x)) [(_start (str1) - 1), (_end (str1) + 1)]) structs 
 --careful of overlapping
                    in
-                     if null l_r --`debugSummary` (\_ -> ((n1, str1), (chooseByProbs r' $ normalizeList l_r)))
-                     then (w'', a) --`debugSummary` (\_ -> "FAIL")
+                     if null l_r 
+                     then (w'', a)
                      else 
                          let 
-                             (n2, str2) = (chooseByProbs r' $ normalizeList l_r) --`debugSummary` ("2:",)
+                             (n2, str2) = (chooseByProbs r' $ normalizeList l_r)
                              ((n1',str1'), (n2', str2')) = (if (_start str1 < _start str2) then id else swap) ((n1,str1), (n2, str2)) -- |> debugShow
                          in
-                           case action (n1', str1') (n2', str2') (_workspace w) of -- `debug` (show ((n1',str1'), (n2', str2')))  of
+                           case (combineRuleToAction action) (n1', str1') (n2', str2') (_workspace w) of
                              Just (wk', i) -> 
                                  (w'' |> set workspace wk', 
                                   a & memory . childStructs %~ (S.delete n1' .
@@ -119,6 +113,9 @@ makePatternMatcher' myName li =
                              Nothing -> (w'',a),
             _memory = PMMemory S.empty,
             _inbox = []}
+
+makePatternMatcher' :: String -> [(MTreeState', MTreeState', [Int] -> [Int] -> Maybe Formula)] -> Agent' (Mind Workspace mes) PMMemory mes
+makePatternMatcher' myName li = makeFormulaAgent myName (makeCombineRules' li)
                                               
 -- * Concrete instantiations
 

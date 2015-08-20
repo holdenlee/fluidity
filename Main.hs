@@ -29,6 +29,7 @@ import Mind
 import PTScan
 import Workspace
 import PatternMatchers
+import Generalizor
 
 logg :: (a -> a) -> (a -> IO b) -> (IO a -> IO a)
 logg f disp ia = 
@@ -52,7 +53,7 @@ main = runOnList [1,1,2,1,2,3,1,2,3,4] 20
 
 runOnList li n = do
   g <- getStdGen
-  let mind = initMind li [(1, (Agent replicator)), (2, Agent ranger)] g
+  let mind = initMind li [(1, (Agent replicator)), (2, Agent ranger), (3, Agent generalizor)] g
   repeatTimes n (logg runOneCycle (\m -> putStrLn $ show $ _workspace m)) (return mind)
 
 test1 = runOnList [1,1,2,2,1,2,3,3,3,1,2,3,4,4,4,4]

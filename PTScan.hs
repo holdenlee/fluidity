@@ -15,7 +15,7 @@ import Data.Char
 import qualified Data.Set as S
 import Data.Array
 import Data.Tuple
-import Data.Graph.Inductive as G
+import qualified Data.Graph.Inductive as G
 import System.Random
 
 import Utilities
