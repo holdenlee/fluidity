@@ -52,30 +52,18 @@ instance Pointed PMMemory where
     point = PMMemory S.empty M.empty
 
 makeFields ''PMMemory
---makeLenses ''PMMemory
 
 filterIDs :: (Int -> Int -> Bool) -> Mind Workspace mes -> [Int] -> [(Int, Structure)]
 filterIDs f m li = map (appendFun (\i -> m ^. (workspace . board . nodeIndex i))) li 
+
+filterNonIntersecting:: Mind Workspace mes -> [Int] -> [Int]
+filterNonIntersecting w ids = filter (\x -> null $ ((_atIndex $ _workspace w) MM.! x) `L.intersect` ids) ids
 
 getPMActivations :: Bool -> Mind Workspace mes -> [Int] -> [((Int, Structure), Double)]
 getPMActivations b w ids = 
     map ((\(cid, str) -> ((cid, str), lclamp 0.5 $ fromIntegral (_length str) + totalMod (str ^. modifiers)))) $
          filterIDs (\_ _ -> True) w
-          (ids ++ (if b then filter (\x -> null $ ((_atIndex $ _workspace w) MM.! x) `L.intersect` ids) [1..(length $ _list $ _workspace w)] else []))
-
-{-
-    map (\cid -> 
-                 let 
-                     str = w ^. (workspace . board . nodeIndex cid) 
-                 in 
-                   ((cid, str), lclamp 0.5 $ fromIntegral (_length str) + totalMod (str ^. modifiers))) ids ++ 
-        (if b then (map (\cid -> 
-                 let 
-                     str = w ^. (workspace . board . nodeIndex cid) 
-                 in 
-                   ((cid, str), lclamp 0.5 $ fromIntegral (_length str) + totalMod (str ^. modifiers)))
-            (filter (\x -> null $ ((_atIndex $ _workspace w) MM.! x) `L.intersect` ids) [1..(length $ _list $ _workspace w)])) else [])
--}
+          (ids ++ (if b then filterNonIntersecting w [1..(length $ _list $ _workspace w)] else []))
 
 {-| Find the activation of child structures. The bool is whether to include singletons. -}
 getChildPMActivations :: Bool -> Mind Workspace mes -> Agent' (Mind Workspace mes) PMMemory mes -> [((Int, Structure), Double)]
