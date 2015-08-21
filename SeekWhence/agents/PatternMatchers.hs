@@ -56,14 +56,14 @@ makeFields ''PMMemory
 filterIDs :: (Int -> Int -> Bool) -> Mind Workspace mes -> [Int] -> [(Int, Structure)]
 filterIDs f m li = map (appendFun (\i -> m ^. (workspace . board . nodeIndex i))) li 
 
-filterNonIntersecting:: Mind Workspace mes -> [Int] -> [Int]
-filterNonIntersecting w ids = filter (\x -> null $ ((_atIndex $ _workspace w) MM.! x) `L.intersect` ids) ids
+filterNonIntersecting:: Mind Workspace mes -> [Int] -> [Int] -> [Int]
+filterNonIntersecting w avoidIDs ids = filter (\x -> null $ ((_atIndex $ _workspace w) MM.! x) `L.intersect` avoidIDs) ids
 
 getPMActivations :: Bool -> Mind Workspace mes -> [Int] -> [((Int, Structure), Double)]
 getPMActivations b w ids = 
     map ((\(cid, str) -> ((cid, str), lclamp 0.5 $ fromIntegral (_length str) + totalMod (str ^. modifiers)))) $
          filterIDs (\_ _ -> True) w
-          (ids ++ (if b then filterNonIntersecting w [1..(length $ _list $ _workspace w)] else []))
+          (ids ++ (if b then filterNonIntersecting w ids [1..(length $ _list $ _workspace w)] else []))
 
 {-| Find the activation of child structures. The bool is whether to include singletons. -}
 getChildPMActivations :: Bool -> Mind Workspace mes -> Agent' (Mind Workspace mes) PMMemory mes -> [((Int, Structure), Double)]
@@ -87,36 +87,50 @@ combineRuleToAction f (n1, str1) (n2, str2) wk =
         return $ addFormulaOn [n1,n2] newStr wk        
 --make it report success?
 
+-- ? (HasChildStructs mem) =>
+{-| 
+  f1 is the options for the first structure. 
+  f2 is the options for the second one, given the list of options for first structure and the first structure chosen.
+  combineF is how to combine the two structures.
+-}
+chooseTwoAndTryCombine :: ((Mind Workspace mes) -> Agent' (Mind Workspace mes) PMMemory mes -> [((Int, Structure), Double)]) -> 
+                          ([((Int, Structure), Double)] -> Structure -> (Mind Workspace mes) -> Agent' (Mind Workspace mes) PMMemory mes -> [((Int, Structure), Double)]) ->
+                          (Formula -> Formula -> Maybe Formula) -> 
+                          Action (Mind Workspace mes) PMMemory mes
+chooseTwoAndTryCombine f1 f2 combineF w a =
+    let
+        r::Double
+        (r,w') = getRandom (0,1) w -- x::Double
+        r'::Double
+        (r',w'') = getRandom (0,1) w' 
+        structs = f1 w a
+        (n1, str1) = (chooseByProbs r $ normalizeList structs) 
+        l_r = f2 structs str1 w a 
+--careful of overlapping
+    in
+      if null l_r 
+      then (w'', a)
+      else 
+          let 
+              (n2, str2) = (chooseByProbs r' $ normalizeList l_r)
+              ((n1',str1'), (n2', str2')) = (if (str1 ^. start < str2 ^. start) then id else swap) ((n1,str1), (n2, str2))
+          in
+            case (combineRuleToAction combineF) (n1', str1') (n2', str2') (_workspace w) of
+              Just (wk', i) -> (w'' |> set workspace wk', 
+                                a & memory . childStructs %~ (S.delete n1' . S.delete n2' . S.insert i))
+--modify the workspace, and modify the memory of agent a to remove the previous childStructs from memory
+              Nothing -> (w'',a)
+                          
+
 makeFormulaAgent :: String -> (Formula -> Formula -> Maybe Formula) -> Agent' (Mind Workspace mes) PMMemory mes
 makeFormulaAgent myName action = 
     Agent' {_name = myName,
             --look at total strength of child structures
             _scout = \w a -> (,a) $ sum $ map snd $ getChildPMActivations False w a,
-            _act = \w a ->
-                   let
-                       r::Double
-                       (r,w') = getRandom (0,1) w -- x::Double
-                       r'::Double
-                       (r',w'') = getRandom (0,1) w' 
-                       structs = getChildPMActivations True w a -- |> debugShow
-                       (n1, str1) = (chooseByProbs r $ normalizeList structs) 
-                       l_r = L.filter (\((i, _), _) -> or $ map (\x -> i `elem` ((w ^. (workspace.atIndex)) MM.! x)) [((str1 ^. start) - 1), ((str1 ^. end) + 1)]) structs 
---careful of overlapping
-                   in
-                     if null l_r 
-                     then (w'', a)
-                     else 
-                         let 
-                             (n2, str2) = (chooseByProbs r' $ normalizeList l_r)
-                             ((n1',str1'), (n2', str2')) = (if (str1 ^. start < str2 ^. start) then id else swap) ((n1,str1), (n2, str2))
-                         in
-                           case (combineRuleToAction action) (n1', str1') (n2', str2') (_workspace w) of
-                             Just (wk', i) -> 
-                                 (w'' |> set workspace wk', 
-                                  a & memory . childStructs %~ (S.delete n1' .
-                                                                S.delete n2' .
-                                                                S.insert i))
-                             Nothing -> (w'',a),
+            _act = chooseTwoAndTryCombine
+                           (getChildPMActivations True)
+                           (\structs str1 w a -> L.filter (\((i, _), _) -> or $ map (\x -> i `elem` ((w ^. (workspace.atIndex)) MM.! x)) [((str1 ^. start) - 1), ((str1 ^. end) + 1)]) structs)
+                           action,
             _memory = point,
             _inbox = []}
 

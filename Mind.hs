@@ -38,6 +38,10 @@ data Agent' w mem mes = Agent' { -- | unique name
                                  -- | list of messages it received
                                  _inbox :: [mes]}
 
+type Scouting w mem mes = w -> Agent' w mem mes -> (Double, Agent' w mem mes)
+
+type Action w mem mes = w -> Agent' w mem mes -> (w, Agent' w mem mes)
+
 instance (Pointed mem) => Pointed (Agent' w mem mes) where
     point = Agent' {_name = "",
                     _scout = (\_ a -> (0, a)),

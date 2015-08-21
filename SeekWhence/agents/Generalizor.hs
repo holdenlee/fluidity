@@ -102,6 +102,8 @@ generalizeStep k (sub, b) =
                             _ -> if (cur tp1' == cur tp2') then Just ((sub, True), (tp1', tp2')) else Nothing
            )
 
+--big problem: we can't access other memory!
+
 generalizor :: Agent' (Mind Workspace mes) PMMemory mes
 generalizor = makeFormulaAgent "generalizor" generalizorf |> over scout 
               (\origf -> 
@@ -109,7 +111,8 @@ generalizor = makeFormulaAgent "generalizor" generalizorf |> over scout
                        let 
                            (d, a') = origf w a
                        in
-                         (d, a' |> (set (memory . childStructs) (S.fromList $ filter (> (length $ _list $ _workspace w)) $ map fst $ G.labNodes $ _board $ _workspace w))))
+                         (d, a' |> (set (memory . childStructs) 
+                                        (S.fromList $ filter (> (length $ _list $ _workspace w)) $ map fst $ G.labNodes $ _board $ _workspace w))))
 
 --(\(w,a) -> (w, a |> (set childStructs (S.fromList $ filter (> (length $ _list $ _workspace w)) $ map fst $ G.labNodes $ _board $ _workspace w))))
 
