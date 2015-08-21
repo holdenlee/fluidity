@@ -53,16 +53,29 @@ instance Pointed PMMemory where
 
 makeFields ''PMMemory
 
-filterIDs :: (Int -> Int -> Bool) -> Mind Workspace mes -> [Int] -> [(Int, Structure)]
-filterIDs f m li = map (appendFun (\i -> m ^. (workspace . board . nodeIndex i))) li 
+filterIDs :: (Int -> Int -> Bool) -> Mind Workspace mes -> [Int] -> [Int]
+filterIDs f m = filter (\i -> 
+                            let str = m ^. (workspace . board . nodeIndex i)
+                            in f (str ^. begin) (str ^. end))
+{-filter (\(_,str) -> f (str ^. begin) (str ^. end)) . map (appendFun (\i -> m ^. (workspace . board . nodeIndex i)))
+-}
+{-
+filter (\i -> 
+                            let str = m ^. (workspace . board . nodeIndex i)
+                            in f (str ^. begin) (str ^. end))
+-}
 
+mapIDs :: Mind Workspace mes -> [Int] -> [(Int, Structure)]
+mapIDs m = map (appendFun (\i -> m ^. (workspace . board . nodeIndex i)))
+
+{-| given list of base list indices, keep only the ones which avoid avoidIDs-}
 filterNonIntersecting:: Mind Workspace mes -> [Int] -> [Int] -> [Int]
-filterNonIntersecting w avoidIDs ids = filter (\x -> null $ ((_atIndex $ _workspace w) MM.! x) `L.intersect` avoidIDs) ids
+filterNonIntersecting m avoidIDs ids = filter (\x -> null $ ((m ^. (workspace . atIndex)) MM.! x) `L.intersect` avoidIDs) ids
 
 getPMActivations :: Bool -> Mind Workspace mes -> [Int] -> [((Int, Structure), Double)]
 getPMActivations b w ids = 
     map ((\(cid, str) -> ((cid, str), lclamp 0.5 $ fromIntegral (_length str) + totalMod (str ^. modifiers)))) $
-         filterIDs (\_ _ -> True) w
+         mapIDs w
           (ids ++ (if b then filterNonIntersecting w ids [1..(length $ _list $ _workspace w)] else []))
 
 {-| Find the activation of child structures. The bool is whether to include singletons. -}
@@ -113,10 +126,11 @@ chooseTwoAndTryCombine f1 f2 combineF w a =
       else 
           let 
               (n2, str2) = (chooseByProbs r' $ normalizeList l_r)
-              ((n1',str1'), (n2', str2')) = (if (str1 ^. start < str2 ^. start) then id else swap) ((n1,str1), (n2, str2))
+              ((n1',str1'), (n2', str2')) = (if (str1 ^. begin < str2 ^. begin) then id else swap) ((n1,str1), (n2, str2))
           in
             case (combineRuleToAction combineF) (n1', str1') (n2', str2') (_workspace w) of
-              Just (wk', i) -> (w'' |> set workspace wk', 
+              Just (wk', i) -> (w'' |> set workspace wk'
+                                    |> over (workspace . tops) (S.delete n1' . S.delete n2' . S.insert i),
                                 a & memory . childStructs %~ (S.delete n1' . S.delete n2' . S.insert i))
 --modify the workspace, and modify the memory of agent a to remove the previous childStructs from memory
               Nothing -> (w'',a)
@@ -129,7 +143,7 @@ makeFormulaAgent myName action =
             _scout = \w a -> (,a) $ sum $ map snd $ getChildPMActivations False w a,
             _act = chooseTwoAndTryCombine
                            (getChildPMActivations True)
-                           (\structs str1 w a -> L.filter (\((i, _), _) -> or $ map (\x -> i `elem` ((w ^. (workspace.atIndex)) MM.! x)) [((str1 ^. start) - 1), ((str1 ^. end) + 1)]) structs)
+                           (\structs str1 w a -> L.filter (\((i, _), _) -> or $ map (\x -> i `elem` ((w ^. (workspace.atIndex)) MM.! x)) [((str1 ^. begin) - 1), ((str1 ^. end) + 1)]) structs)
                            action,
             _memory = point,
             _inbox = []}

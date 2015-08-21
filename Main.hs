@@ -45,7 +45,7 @@ initMind li ags g = point |> set workspace (listToWorkspace li)
                           |> set active (map fst ags)
                           |> set rng g
 
-main = runOnList [1,1,2,1,2,3,1,2,3,4] 20
+main = runOnList [1,1,2,1,2,3,1,2,3,4] 50
 
 runOnList li n = do
   g <- getStdGen

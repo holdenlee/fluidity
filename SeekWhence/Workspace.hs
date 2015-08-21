@@ -36,7 +36,7 @@ import MathParser
 import Modifiers
 
 data Structure = Structure {_structureFormula :: T.Tree Atom, 
-                            _structureStart :: Int,
+                            _structureBegin :: Int,
                             _structureEnd :: Int,
                             _structureModifiers :: ModifierMap
                            }
@@ -47,7 +47,7 @@ instance Show Structure where
     show str = showFormula symLib $ (view formula) str
 
 _length :: Structure -> Int
-_length str = (view end) str - (view start) str + 1
+_length str = (view end) str - (view begin) str + 1
 
 data EdgeType = Group deriving (Show)
 
@@ -87,23 +87,23 @@ addFormulaOn li f wk =
         b = _board wk
         newN = (newNodes 1 b)!!0
         oldStrs = L.map (appendFun (fromJust . (G.lab b))) li 
-        nowHiddens = L.concatMap (\(i,old) -> L.map (,i) [(old ^. start)..(old ^. end)]) oldStrs
+        nowHiddens = L.concatMap (\(i,old) -> L.map (,i) [(old ^. begin)..(old ^. end)]) oldStrs
         --list should be in order!
-        newStart = (view start) $ fromJust $ G.lab b $ head li
+        newBegin = (view begin) $ fromJust $ G.lab b $ head li
         newEnd = (view end) $ fromJust $ G.lab b $ last li
-        str = Structure{_structureFormula = f, _structureStart = newStart, _structureEnd=newEnd, _structureModifiers = M.empty}
+        str = Structure{_structureFormula = f, _structureBegin = newBegin, _structureEnd=newEnd, _structureModifiers = M.empty}
     in
       wk |> (over board (G.insNode (newN, str) |>> 
                         (G.insEdges $ L.map (\x -> (newN, x, Group)) li)))
          |> (over tops (foldIterate S.delete li))
          |> (over atTop (foldIterate (MM.delete) (L.map fst nowHiddens) .
-                        (foldIterate (uncurry MM.insert) (L.map (,newN) [newStart..newEnd]))))
-         |> (over atIndex (foldIterate ((flip MM.insert) newN) [newStart..newEnd]))
+                        (foldIterate (uncurry MM.insert) (L.map (,newN) [newBegin..newEnd]))))
+         |> (over atIndex (foldIterate ((flip MM.insert) newN) [newBegin..newEnd]))
          |> (,newN)
 
 singletonStr :: (Int, Int) -> Structure
 singletonStr (i, n) = Structure{_structureFormula = _singleton n,
-                                _structureStart = i,
+                                _structureBegin = i,
                                 _structureEnd = i,
                                 _structureModifiers = M.empty}
 
@@ -129,5 +129,5 @@ getPrevTop i wk =
     let
         b = _board wk 
     in
-      (MM.lookup ((view start) (fromJust $ G.lab b i) - 1) (_atTop wk)) `mindex` 0
+      (MM.lookup ((view begin) (fromJust $ G.lab b i) - 1) (_atTop wk)) `mindex` 0
 

@@ -38,7 +38,7 @@ import Search
 import PatternMatchers
 
 import Mind 
-import Workspace hiding (start)
+import Workspace
 
 generalizorf :: Formula -> Formula -> Maybe Formula
 generalizorf f1 f2 = 
@@ -102,19 +102,17 @@ generalizeStep k (sub, b) =
                             _ -> if (cur tp1' == cur tp2') then Just ((sub, True), (tp1', tp2')) else Nothing
            )
 
---big problem: we can't access other memory!
-
 generalizor :: Agent' (Mind Workspace mes) PMMemory mes
-generalizor = makeFormulaAgent "generalizor" generalizorf |> over scout 
-              (\origf -> 
-                   \w a -> 
-                       let 
-                           (d, a') = origf w a
-                       in
-                         (d, a' |> (set (memory . childStructs) 
-                                        (S.fromList $ filter (> (length $ _list $ _workspace w)) $ map fst $ G.labNodes $ _board $ _workspace w))))
-
---(\(w,a) -> (w, a |> (set childStructs (S.fromList $ filter (> (length $ _list $ _workspace w)) $ map fst $ G.labNodes $ _board $ _workspace w))))
+generalizor = 
+    Agent' {_name = "generalizor",
+            --look at total strength of top-level structures excluding singletons
+            _scout = \w a -> (,a) $ sum $ map snd $ getPMActivations False w (filter (> (length $ _list $ _workspace w)) (S.toList $ _tops $ _workspace w)),
+            _act = chooseTwoAndTryCombine
+                           (\w a -> getPMActivations False w (filter (> (length $ _list $ _workspace w)) (S.toList $ _tops $ _workspace w)))
+                           (\structs str1 w a -> getPMActivations False w (filterIDs (\l r -> r == str1 ^. begin - 1 || l == str1 ^. end + 1) w (map (fst . fst) structs)))
+                           generalizorf,
+            _memory = point,
+            _inbox = []}
 
 --hacky right now
 --scout (\w a -> (,a) $ sum $ map snd $ getPMActivations False w (map fst $ G.labNodes $ _board $ _workspace w))
