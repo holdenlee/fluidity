@@ -38,9 +38,9 @@ data Agent' w mem mes = Agent' { -- | unique name
                                  -- | list of messages it received
                                  _inbox :: [mes]}
 
-instance (Pointed mes) => Pointed (Agent' w mem mes) where
+instance (Pointed mem) => Pointed (Agent' w mem mes) where
     point = Agent' {_name = "",
-                    _scout = \_ -> a -> (0, a),
+                    _scout = (\_ a -> (0, a)),
                     _act = (,),
                     _memory = point, 
                     _inbox = []}
@@ -117,15 +117,15 @@ data Mind wksp mes = Mind {
 
 makeLenses ''Mind
 
-instance (Pointed wksp) => (Pointed (Mind wksp mes)) where
-    point = {_workspace = point,
-             _temp =50,
-             _agents = M.empty,
-             _active = [],
-             _slipnet = G.empty,
-             _followers = MM.empty,
-             --warning: rng is not set because it can't be.
-             _time = 0}
+instance (Pointed wksp) => Pointed (Mind wksp mes) where
+    point = Mind {_workspace = point,
+                  _temp =50,
+                  _agents = M.empty,
+                  _active = [],
+                  _slipnet = G.empty,
+                  _followers = MM.empty,
+                  --warning: rng is not set because it can't be.
+                  _time = 0}
 
 indexLens :: Int -> Lens' (M.Map Int a) a
 indexLens n = lens (M.!n) (flip (M.insert n))

@@ -62,11 +62,11 @@ data Workspace = Workspace {_list :: [Int],
 makeLenses ''Workspace
 
 instance Pointed Workspace where
-    point = {_list = [],
-             _board = G.empty,
-             _tops = S.empty,
-             _atIndex = MM.empty,
-             _atTop = MM.empty}
+    point = Workspace {_list = [],
+                       _board = G.empty,
+                       _tops = S.empty,
+                       _atIndex = MM.empty,
+                       _atTop = MM.empty}
 
 mmi :: (Ord a) => a -> Lens (MM.MultiMap a b) (MM.MultiMap a b) [b] b 
 mmi i = lens (MM.! i) (flip (MM.insert i))
