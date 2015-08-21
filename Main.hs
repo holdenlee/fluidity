@@ -40,14 +40,10 @@ logg f disp ia =
       return result
 
 initMind :: [Int] -> [(Int, Agent (Mind Workspace mes) mes)] -> StdGen -> Mind Workspace mes
-initMind li ags g = 
-    Mind { _workspace = listToWorkspace li,
-           _temp =50,
-           _agents = M.empty |> insertMultiple ags,
-           _active = map fst ags,
-           _slipnet = G.empty,
-           _followers = MM.empty,
-           _rng = g}
+initMind li ags g = point |> set workspace (listToWorkspace li)
+                          |> over agents (insertMultiple ags)
+                          |> set active (map fst ags)
+                          |> set rng g
 
 main = runOnList [1,1,2,1,2,3,1,2,3,4] 20
 
