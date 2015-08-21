@@ -29,19 +29,12 @@ import Formulas
 import Functions
 import TreeState
 import MathParser
-
-type ModifierList = M.Map String Double
-
-totalMod :: ModifierList -> Double
-totalMod = sum . M.elems
-
-modifier :: String -> Lens' ModifierList Double
-modifier modName = lens (fromMaybe 0 . M.lookup modName) (flip (M.insert modName))
+import Modifiers
 
 data Structure = Structure {_formula :: T.Tree Atom, 
                             _start :: Int,
                             _end :: Int,
-                            _modifiers :: ModifierList
+                            _modifiers :: ModifierMap
                            }
 
 makeLenses ''Structure

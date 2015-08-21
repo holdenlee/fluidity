@@ -36,6 +36,7 @@ import Functions
 
 import Mind
 import Workspace
+import Modifiers
 
 -- * Pattern Matchers in the abstract
 
