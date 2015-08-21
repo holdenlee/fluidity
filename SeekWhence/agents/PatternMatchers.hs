@@ -5,7 +5,11 @@
   -XTupleSections
 #-}
 
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeSynonymInstances   #-}
+{-# LANGUAGE MultiParamTypeClasses   #-}
 
 -- | Agents created from formulas. Each of these agents has a set of formulas, and it tries to apply the formulas to build upon existing structures. For example, 'ranger' would try to apply the formula [1..n]++[n+1] = [1..(n+1)] to build longer ranges.
 module PatternMatchers where
@@ -40,10 +44,15 @@ import Modifiers
 
 -- * Pattern Matchers in the abstract
 
-data PMMemory = PMMemory {_childStructs :: S.Set Int} deriving Show
+data PMMemory = PMMemory {_pMMemoryChildStructs :: S.Set Int,
+                          _pMMemoryModifiers :: ModifierMap} deriving Show
 --only include the structures at the top.
 
-makeLenses ''PMMemory
+instance Pointed PMMemory where
+    point = PMMemory S.empty M.empty
+
+makeFields ''PMMemory
+--makeLenses ''PMMemory
 
 getPMActivations :: Bool -> Mind Workspace mes -> [Int] -> [((Int, Structure), Double)]
 getPMActivations b w ids = 
@@ -51,17 +60,17 @@ getPMActivations b w ids =
                  let 
                      str = w ^. (workspace . board . nodeIndex cid) 
                  in 
-                   ((cid, str), lclamp 0.5 $ fromIntegral (_length str) + totalMod (_modifiers str))) ids ++ 
+                   ((cid, str), lclamp 0.5 $ fromIntegral (_length str) + totalMod (str ^. modifiers))) ids ++ 
         (if b then (map (\cid -> 
                  let 
                      str = w ^. (workspace . board . nodeIndex cid) 
                  in 
-                   ((cid, str), lclamp 0.5 $ fromIntegral (_length str) + totalMod (_modifiers str)))
+                   ((cid, str), lclamp 0.5 $ fromIntegral (_length str) + totalMod (str ^. modifiers)))
             (filter (\x -> null $ ((_atIndex $ _workspace w) MM.! x) `L.intersect` ids) [1..(length $ _list $ _workspace w)])) else [])
 
 {-| Find the activation of child structures. The bool is whether to include singletons. -}
 getChildPMActivations :: Bool -> Mind Workspace mes -> Agent' (Mind Workspace mes) PMMemory mes -> [((Int, Structure), Double)]
-getChildPMActivations b w a = getPMActivations b w (S.toList $ _childStructs $ _memory a)
+getChildPMActivations b w a = getPMActivations b w (S.toList $ (view (childStructs |>> memory)) a)
         
 
 makeCombineRule' :: (Show a) => (MTreeState', MTreeState', [Int] -> [Int] -> Maybe a) -> Formula -> Formula -> Maybe a
@@ -78,7 +87,7 @@ makeCombineRules' li f1 f2 = foldl (orElse) Nothing (map (\x -> makeCombineRule'
 combineRuleToAction :: (Formula -> Formula -> Maybe Formula) -> (Int, Structure) -> (Int, Structure) -> Workspace -> Maybe (Workspace, Int)
 combineRuleToAction f (n1, str1) (n2, str2) wk = 
       do
-        newStr <- f (_formula str1) (_formula str2) 
+        newStr <- f (str1 ^. formula) (str2 ^. formula) 
         return $ addFormulaOn [n1,n2] newStr wk        
 --make it report success?
 
@@ -95,7 +104,7 @@ makeFormulaAgent myName action =
                        (r',w'') = getRandom (0,1) w' 
                        structs = getChildPMActivations True w a -- |> debugShow
                        (n1, str1) = (chooseByProbs r $ normalizeList structs) 
-                       l_r = L.filter (\((i, _), _) -> or $ map (\x -> i `elem` ((w ^. (workspace.atIndex)) MM.! x)) [(_start (str1) - 1), (_end (str1) + 1)]) structs 
+                       l_r = L.filter (\((i, _), _) -> or $ map (\x -> i `elem` ((w ^. (workspace.atIndex)) MM.! x)) [((str1 ^. start) - 1), ((str1 ^. end) + 1)]) structs 
 --careful of overlapping
                    in
                      if null l_r 
@@ -103,7 +112,7 @@ makeFormulaAgent myName action =
                      else 
                          let 
                              (n2, str2) = (chooseByProbs r' $ normalizeList l_r)
-                             ((n1',str1'), (n2', str2')) = (if (_start str1 < _start str2) then id else swap) ((n1,str1), (n2, str2)) -- |> debugShow
+                             ((n1',str1'), (n2', str2')) = (if (str1 ^. start < str2 ^. start) then id else swap) ((n1,str1), (n2, str2))
                          in
                            case (combineRuleToAction action) (n1', str1') (n2', str2') (_workspace w) of
                              Just (wk', i) -> 
@@ -112,7 +121,7 @@ makeFormulaAgent myName action =
                                                                 S.delete n2' .
                                                                 S.insert i))
                              Nothing -> (w'',a),
-            _memory = PMMemory S.empty,
+            _memory = point,
             _inbox = []}
 
 makePatternMatcher' :: String -> [(MTreeState', MTreeState', [Int] -> [Int] -> Maybe Formula)] -> Agent' (Mind Workspace mes) PMMemory mes

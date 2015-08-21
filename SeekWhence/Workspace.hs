@@ -5,7 +5,11 @@
   -XRank2Types
 #-}
 
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeSynonymInstances   #-}
+{-# LANGUAGE MultiParamTypeClasses   #-}
 
 module Workspace where
 import System.Environment
@@ -31,19 +35,19 @@ import TreeState
 import MathParser
 import Modifiers
 
-data Structure = Structure {_formula :: T.Tree Atom, 
-                            _start :: Int,
-                            _end :: Int,
-                            _modifiers :: ModifierMap
+data Structure = Structure {_structureFormula :: T.Tree Atom, 
+                            _structureStart :: Int,
+                            _structureEnd :: Int,
+                            _structureModifiers :: ModifierMap
                            }
 
-makeLenses ''Structure
+makeFields ''Structure
 
 instance Show Structure where
-    show str = showFormula symLib $ _formula str
+    show str = showFormula symLib $ (view formula) str
 
 _length :: Structure -> Int
-_length str = _end str - _start str + 1
+_length str = (view end) str - (view start) str + 1
 
 data EdgeType = Group deriving (Show)
 
@@ -76,11 +80,11 @@ addFormulaOn li f wk =
         b = _board wk
         newN = (newNodes 1 b)!!0
         oldStrs = L.map (appendFun (fromJust . (G.lab b))) li 
-        nowHiddens = L.concatMap (\(i,old) -> L.map (,i) [(_start old)..(_end old)]) oldStrs
+        nowHiddens = L.concatMap (\(i,old) -> L.map (,i) [(old ^. start)..(old ^. end)]) oldStrs
         --list should be in order!
-        newStart = _start $ fromJust $ G.lab b $ head li
-        newEnd = _end $ fromJust $ G.lab b $ last li
-        str = Structure{_formula = f, _start = newStart, _end=newEnd, _modifiers = M.empty}
+        newStart = (view start) $ fromJust $ G.lab b $ head li
+        newEnd = (view end) $ fromJust $ G.lab b $ last li
+        str = Structure{_structureFormula = f, _structureStart = newStart, _structureEnd=newEnd, _structureModifiers = M.empty}
     in
       wk |> (over board (G.insNode (newN, str) |>> 
                         (G.insEdges $ L.map (\x -> (newN, x, Group)) li)))
@@ -91,10 +95,10 @@ addFormulaOn li f wk =
          |> (,newN)
 
 singletonStr :: (Int, Int) -> Structure
-singletonStr (i, n) = Structure{_formula = _singleton n,
-                                _start = i,
-                                _end = i,
-                                _modifiers = M.empty}
+singletonStr (i, n) = Structure{_structureFormula = _singleton n,
+                                _structureStart = i,
+                                _structureEnd = i,
+                                _structureModifiers = M.empty}
 
 listToWorkspace :: [Int] -> Workspace
 listToWorkspace li = Workspace{_list = li,
@@ -110,7 +114,7 @@ getNextTop i wk =
     let
         b = _board wk 
     in
-      (MM.lookup (_end (fromJust $ G.lab b i) + 1) (_atTop wk)) `mindex` 0
+      (MM.lookup ((view end) (fromJust $ G.lab b i) + 1) (_atTop wk)) `mindex` 0
 
 {-| get the previous top structure in list order (as opposed to the next *element*) -}
 getPrevTop :: Int -> Workspace -> Maybe Int
@@ -118,5 +122,5 @@ getPrevTop i wk =
     let
         b = _board wk 
     in
-      (MM.lookup (_start (fromJust $ G.lab b i) - 1) (_atTop wk)) `mindex` 0
+      (MM.lookup ((view start) (fromJust $ G.lab b i) - 1) (_atTop wk)) `mindex` 0
 

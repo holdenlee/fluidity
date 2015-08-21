@@ -210,3 +210,8 @@ clamp lo hi x
     | x > hi    = hi
     | x < lo    = lo
     | otherwise = x
+
+-- * Typeclasses
+
+class Pointed a where
+    point :: a
