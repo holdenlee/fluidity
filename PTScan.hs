@@ -17,6 +17,7 @@ import Data.Array
 import Data.Tuple
 import qualified Data.Graph.Inductive as G
 import System.Random
+import Control.Lens hiding ((|>))
 
 import Utilities
 import ParseUtilities
@@ -65,4 +66,4 @@ pickAndRun (li, m) =
     in
       runAgent chosen m' `debug` ("choosing agent #" ++ (show chosen))
 
-runOneCycle = scoutAll |>> pickAndRun
+runOneCycle = scoutAll |>> pickAndRun |>> over time (+1)
