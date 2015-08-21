@@ -40,12 +40,25 @@ data Agent' w mem mes = Agent' { -- | unique name
 
 makeLenses ''Agent'
 
+aname :: Lens' (Agent w mes) String
+aname = lens (\a -> case a of
+                      Agent a' -> _name a')
+             (\a nm -> case a of
+                         Agent a' -> Agent a'{_name = nm})
+
+ainbox :: Lens' (Agent w mes) [mes]
+ainbox = lens (\a -> case a of
+                      Agent a' -> _inbox a')
+              (\a msgs -> case a of
+                            Agent a' -> Agent a'{_inbox = msgs})
+
 instance (Show mem) => Show (Agent' w mem mes) where
     show = show . _memory
 
 {-| The internal memory of an agent is hidden, so that agents with different internal workings can coexist. -}
 data Agent w mes = forall mem. (Show mem) => Agent {_agent :: Agent' w mem mes}
 
+--doesn't work because of existentials
 makeLenses ''Agent
 
 --Cannot use record selector `_agent' as a function due to escaped type variables
@@ -55,9 +68,6 @@ instance Show (Agent w mes) where
     show a =
         case a of Agent a' -> show $ _memory a'
 --right now it's just a memory dump
-
-{-mapBoth :: (a -> b) -> (a,a) -> (b,b)
-mapBoth f (x,y) = (f x, f y)-}
 
 instance Eq (Agent w mes) where
     a1 == a2 =
