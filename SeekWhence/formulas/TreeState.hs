@@ -7,7 +7,7 @@
  -XFlexibleContexts
 #-}
 
-module TreeState (Substitution, Substitution2, MState, TreeState, TreeState', MStater, MTreeState, MTreeState', put2, replaceVal, joinWith, repeatUntilState, graftPattern, matchJustSymbol, matchJustSymbol', isInteger, parsePattern, patternMatch, patternMatch', hasInt) where
+module TreeState (Substitution, Substitution2, MState, TreeState, TreeState', MStater, MTreeState, MTreeState', put2, replaceVal, joinWith, repeatUntilState, graftPattern, matchJustSymbol, matchJustSymbol', isInteger, formulaToPattern, parsePattern, patternMatch, patternMatch', hasInt) where
 import System.Environment
 import Control.Monad
 import Data.Tree

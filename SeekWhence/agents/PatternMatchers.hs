@@ -82,15 +82,23 @@ getPMActivations b w ids =
 getChildPMActivations :: Bool -> Mind Workspace mes -> Agent' (Mind Workspace mes) PMMemory mes -> [((Int, Structure), Double)]
 getChildPMActivations b w a = getPMActivations b w (S.toList $ (a ^. (memory . childStructs)))  
 
-makeCombineRule' :: (Show a) => (MTreeState', MTreeState', [Int] -> [Int] -> Maybe a) -> Formula -> Formula -> Maybe a
+makeCombineRule :: (MTreeState', MTreeState', [Formula] -> [Formula] -> Maybe a) -> Formula -> Formula -> Maybe a
+makeCombineRule (m1, m2, f) f1 f2 = 
+    case (patternMatch m1 f1, patternMatch m2 f2) of
+      (Just li1, Just li2) -> f li1 li2 
+      _ -> Nothing 
+
+makeCombineRules :: [(MTreeState', MTreeState', [Formula] -> [Formula] -> Maybe a)] -> Formula -> Formula -> Maybe a
+makeCombineRules li f1 f2 = foldl (orElse) Nothing (map (\x -> makeCombineRule x f1 f2) li) 
+
+makeCombineRule' :: (MTreeState', MTreeState', [Int] -> [Int] -> Maybe a) -> Formula -> Formula -> Maybe a
 makeCombineRule' (m1, m2, f) f1 f2 = 
     case (patternMatch' m1 f1, patternMatch' m2 f2) of
-      (Just li1, Just li2) -> f li1 li2 --`debug` ("CR:"++(show (li1, li2)))
-      _ -> Nothing --`debug` ("No!" ++ (show (patternMatch' m1 f1, patternMatch' m2 f2)))
+      (Just li1, Just li2) -> f li1 li2 
+      _ -> Nothing 
 
---debugging...
-makeCombineRules' :: (Show a) => [(MTreeState', MTreeState', [Int] -> [Int] -> Maybe a)] -> Formula -> Formula -> Maybe a
-makeCombineRules' li f1 f2 = foldl (orElse) Nothing (map (\x -> makeCombineRule' x f1 f2) li) -- |> debugShow
+makeCombineRules' :: [(MTreeState', MTreeState', [Int] -> [Int] -> Maybe a)] -> Formula -> Formula -> Maybe a
+makeCombineRules' li f1 f2 = foldl (orElse) Nothing (map (\x -> makeCombineRule' x f1 f2) li) 
 
 {-| Given a rule for combining formulas, tries to combine the formulas at the given location in the workspace. If successful it returns Just the new workspace along with the index of the new formula. Else returns Nothing. -}
 combineRuleToAction :: (Formula -> Formula -> Maybe Formula) -> (Int, Structure) -> (Int, Structure) -> Workspace -> Maybe (Workspace, Int)

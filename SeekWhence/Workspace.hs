@@ -95,7 +95,7 @@ addFormulaOn li f wk =
     in
       wk |> (over board (G.insNode (newN, str) |>> 
                         (G.insEdges $ L.map (\x -> (newN, x, Group)) li)))
-         |> (over tops (foldIterate S.delete li))
+         |> (over tops (foldIterate S.delete li . S.insert newN))
          |> (over atTop (foldIterate (MM.delete) (L.map fst nowHiddens) .
                         (foldIterate (uncurry MM.insert) (L.map (,newN) [newBegin..newEnd]))))
          |> (over atIndex (foldIterate ((flip MM.insert) newN) [newBegin..newEnd]))

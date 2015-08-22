@@ -24,6 +24,7 @@ import qualified Data.Graph.Inductive as G
 import System.Random
 import Control.Lens hiding ((|>))
 import Control.Monad.Trans.State
+import qualified Data.Tree as T
 
 import TreeState
 import Utilities
@@ -36,15 +37,14 @@ import MaybeUtils
 import Functions
 import Search
 import PatternMatchers
+import TreeState
 
 import Mind 
 import Workspace
 
-generalizorf :: Formula -> Formula -> Maybe Formula
-generalizorf f1 f2 = 
-    case (patternMatch' singlePattern f1, patternMatch' singlePattern f2) of
-      (Nothing, Nothing) -> 
-          do
+generalize :: Formula -> Formula -> Maybe Formula
+generalize f1 f2 = 
+    do
             let startTPs = (start f1, start f2)
             let unused = max (getUnusedVar f1) (getUnusedVar f2)
             let ms = repeatUntilState (M.empty, True) (\(_,b) -> not b) (generalizeStep unused)
@@ -60,6 +60,32 @@ generalizorf f1 f2 =
                   return $ _concatMap (_fun (_var unused) f1') (_mlist [_num y, _num z])
             else 
                 return $ _concatReplicate f1' (_num 2) 
+
+specialize :: Atom -> Formula -> Formula -> Maybe Formula
+specialize var f1 =
+    patternMatch (formulaToPattern $ fmap (\a -> if a==var then AStr "?1" else a) f1) >=> (mlookup 0)
+
+concatMapPattern = parsePattern "concatMap(fun(?0,?1),?2)"
+
+trivialPattern = parsePattern "?0"
+
+--can't match [?args] right now...
+extendConcatMap :: Formula -> Formula -> Maybe Formula
+extendConcatMap =
+    let
+        combineF f = (\li1 li2 -> do
+                        val <- specialize (T.rootLabel (li1!!0)) (li1!!1) (li2!!0)
+                        case (li1!!2) of
+                          T.Node (AStr "List") li3 -> return $ _concatMap (_fun (li1!!0) (li1!!1)) (_mlist (f val li3))
+                          _ -> Nothing)
+    in
+      makeCombineRules [(concatMapPattern, trivialPattern, combineF (\v li -> li ++ [v])),
+                        (trivialPattern, concatMapPattern, flip $ combineF (:))]
+
+generalizorf :: Formula -> Formula -> Maybe Formula
+generalizorf f1 f2 = 
+    case (patternMatch' singlePattern f1, patternMatch' singlePattern f2) of
+      (Nothing, Nothing) -> generalize f1 f2 `orElse` extendConcatMap f1 f2
       _ -> Nothing
 
 --Bool is whether to keep going.
