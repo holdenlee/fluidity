@@ -7,7 +7,7 @@
  -XFlexibleContexts
 #-}
 
-module Search (Searchable, children, root, graft, SearchPath, TPath, TPath2, path, meTree, cur, curTree, up, down, prev, next, start, changeMe, emptyPath, node, dFSStep, dFSStep2, zipUp) where
+module Search (Treelike, children, root, graft, SearchPath, TPath, TPath2, path, meTree, cur, curTree, up, down, prev, next, start, changeMe, emptyPath, node, dFSStep, dFSStep2, zipUp) where
 import System.Environment
 import Control.Monad
 import Data.Tree
@@ -15,26 +15,26 @@ import Control.Monad.Trans.State
 
 import Utilities
 
-class Searchable a b | a -> b where
+class Treelike a b | a -> b where
       children :: a -> [a]
       root :: a -> b 
       graft :: b -> [a] -> a
-node :: (Searchable a b) => b -> a
+node :: (Treelike a b) => b -> a
 node x = graft x []
 
-instance Searchable (Tree a) a where 
+instance Treelike (Tree a) a where 
          children ta = (case ta of Node _ c -> c)
          root ta = (case ta of Node a1 _ -> a1)
          graft top ts = Node top ts
 
 --another way to make an instance: for a concrete a with function f: a-> a
---instance Searchable a a where 
+--instance Treelike a a where 
 --         children ta = f ta
 --         root ta = ta
 --         graft top ts = top
 
 --breadcrumbs  | c -> a b
-class (Searchable a b) => SearchPath a b c | c -> a b  where
+class (Treelike a b) => SearchPath a b c | c -> a b  where
       curTree :: c -> a
       cur :: c -> b
       down :: c -> c
@@ -49,7 +49,7 @@ class (Searchable a b) => SearchPath a b c | c -> a b  where
       atTop :: c -> Bool
       emptyPath :: c
 
-cur2 :: (Searchable a b) => b -> TPath a b -> b
+cur2 :: (Treelike a b) => b -> TPath a b -> b
 cur2 y t = case (meTree t) of (Just a) -> cur t
                               Nothing -> y
 
@@ -97,7 +97,7 @@ parentName t = case (path t) of
                  (parent:ancestors) ->  meN parent
 
 
-instance (Searchable a b) => SearchPath a b (TPath a b) where
+instance (Treelike a b) => SearchPath a b (TPath a b) where
          --have to join up! Note this can be made more efficient
          curTree t = 
            case (meTree t) of (Just a) -> a
@@ -177,7 +177,7 @@ dFSStep (tpath, done) =
                    )
 
 dFSStep2:: (SearchPath a b c) => State c (b,String)
---(Searchable a b) => b -> State (TPath a b) (b,String)
+--(Treelike a b) => b -> State (TPath a b) (b,String)
 dFSStep2 = state $ (\tpath ->
           if (hasChild tpath)
           then 

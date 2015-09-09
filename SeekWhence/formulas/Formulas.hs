@@ -50,3 +50,13 @@ getMax s =
 
 getUnusedVar :: Formula -> Int
 getUnusedVar = getMax . getUsedVars
+
+--should use template haskell to generate these...
+isAStr (AStr _) = True
+isAStr _ = False
+
+isAInt (AInt _) = True
+isAInt _ = False
+
+isAVar (AVar _) = True
+isAVar _ = False

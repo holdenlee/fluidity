@@ -1,0 +1,3 @@
+#!/bin/bash
+
+ghc -O2 -i/C:/Users/holden-lee/Dropbox/CS/AI/FARG/fluidity:C:/Users/holden-lee/Dropbox/CS/AI/FARG/fluidity/SeekWhence:C:/Users/holden-lee/Dropbox/CS/AI/FARG/fluidity/SeekWhence/formulas:C:/Users/holden-lee/Dropbox/CS/AI/FARG/fluidity/SeekWhence/agents -o $1 $1.hs

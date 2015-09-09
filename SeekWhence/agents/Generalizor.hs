@@ -42,24 +42,35 @@ import TreeState
 import Mind 
 import Workspace
 
+import FunTree
+
+--as in MapReduce
+reduce :: (Ord a) => [(a,b)] -> [(a,[b])]
+reduce = MM.assocs . MM.fromList 
+
 generalize :: Formula -> Formula -> Maybe Formula
-generalize f1 f2 = 
-    do
-            let startTPs = (start f1, start f2)
-            let unused = max (getUnusedVar f1) (getUnusedVar f2)
-            let ms = repeatUntilState (M.empty, True) (\(_,b) -> not b) (generalizeStep unused)
-            ((sub, _), (tp1,tp2)) <- runStateT ms startTPs
-            let f1' = zipUp tp1
-            if hasInt sub
-            --get the first! 
-            then 
-                let (y,z) = (mapMaybe (\x -> case x of 
-                                               (AInt y, AInt z) -> Just (y,z)
-                                               _ -> Nothing) $ M.assocs sub)!!0
-                in
-                  return $ _concatMap (_fun (_var unused) f1') (_mlist [_num y, _num z])
-            else 
-                return $ _concatReplicate f1' (_num 2) 
+generalize f1 f2 =
+  let
+    (t1,t2) = over both (treeToFun [1..]) (f1,f2)
+    li = compareFuns (t1,t2)
+    --clunky...
+    intIndices1 = map (fst . fst) $ filter (isAInt . snd . fst) li
+    --intIndices2 = map (fst . snd) . filter (isAInt . snd . snd) li
+    pairs = map (over both snd) li
+    reds = reduce pairs
+    nonvars = filter (not. isAVar . fst) reds
+    unused = max (getUnusedVar f1) (getUnusedVar f2)
+  in
+   if any ((>1) . length . snd) reds || any (isAStr . fst) nonvars
+   then Nothing
+   else case nonvars of
+         [] -> Just $ _concatReplicate (_num 2) f1
+         [(AInt y, [AInt z])] ->
+           let
+             f1' = funToTree $ ftreeMap (\x (y,li) -> if x `elem` intIndices1 then (AVar unused, li) else (y, li)) t1
+           in
+            Just $ _concatMap (_fun (_var unused) f1') (_mlist [_num y, _num z])
+         _ -> Nothing
 
 specialize :: Atom -> Formula -> Formula -> Maybe Formula
 specialize var f1 =

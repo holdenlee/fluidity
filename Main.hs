@@ -54,3 +54,12 @@ runOnList li n = do
 
 test1 = runOnList [1,1,2,2,1,2,3,3,3,1,2,3,4,4,4,4]
 
+test2 = runOnList [1,1,1,2,1,2,1,2,3,1,2,3,1,2,3,4,1,2,3,4]
+
+test3 = runOnList [1,1,2,1,2,1,2,3,1,2,3,1,2,3,1,2,3,4,1,2,3,4,1,2,3,4,1,2,3,4]
+
+runOnListSeeded li n r = do
+  let g = mkStdGen r
+  let mind = initMind li [(1, (Agent replicator)), (2, Agent ranger), (3, Agent generalizor)] g
+  repeatTimes n (logg runOneCycle (\m -> putStrLn $ show $ _workspace m)) (return mind)
+
