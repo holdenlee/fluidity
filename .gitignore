@@ -3,6 +3,7 @@ Test*
 *.o
 *.exe
 *.old
+*.stackdump
 *~
 *#
 SeekWhence/tp-tools-old
